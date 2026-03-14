@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，填入 LLM_* 和 EMBEDDING_* 配置
+# 编辑 .env 文件，只填核心模型配置即可
 ```
 
 ### 2. 同步文档
@@ -61,10 +61,29 @@ python scripts/sync_openharmony_docs.py
 
 ### 3. 配置模型环境变量
 
-Embedding 与对话模型已经完全拆分到环境变量中。当前默认示例使用 SiliconFlow 的 `Qwen/Qwen3-Embedding-4B`，并支持通过 `EMBEDDING_*_PREFIX` 从环境变量注入检索前缀；其中 `\n` 会在运行时转换成真实换行。
+现在默认只需要填这 9 个核心变量：
+
+- `LLM_API_KEY`
+- `LLM_BASE_URL`
+- `LLM_CHAT_MODEL`
+- `EMBEDDING_API_KEY`
+- `EMBEDDING_BASE_URL`
+- `EMBEDDING_MODEL`
+- `RERANK_ENABLED`
+- `RERANK_MODEL`
+- `DOCS_LOCAL_PATH`
+
+其中：
+
+- `RERANK_API_KEY` 和 `RERANK_BASE_URL` 默认复用 `EMBEDDING_*`
+- `EMBEDDING_DOCUMENT_INPUT_TYPE` / `EMBEDDING_QUERY_INPUT_TYPE` 默认分别是 `document` / `query`
+- `EMBEDDING_QUERY_PREFIX` 仍然保留在 env 中，便于按模型调整检索 instruction
+- 其余 batch、重试、chunk 大小等都放到“可选高级配置”，不填就走默认值
+
+当前默认示例使用 SiliconFlow 的 `Qwen/Qwen3-Embedding-4B` 和 `Qwen/Qwen3-Reranker-4B`；其中 `EMBEDDING_QUERY_PREFIX` 支持从环境变量注入检索前缀，`\n` 会在运行时转换成真实换行。
 
 ```bash
-grep -E '^(LLM_|EMBEDDING_)' .env
+grep -E '^(LLM_|EMBEDDING_|RERANK_)' .env
 ```
 
 ### 4. 构建索引
@@ -307,6 +326,10 @@ Query → 意图识别 → 混合检索 → 意图增强 → 元数据过滤 →
 CHUNK_TARGET_SIZE=600        # 目标块大小
 CHUNK_OVERLAP=100            # 重叠大小
 RETRIEVAL_TOP_K=8            # 默认返回数量
+RERANK_ENABLED=true          # 是否启用二阶段重排
+RERANK_BASE_URL=https://api.siliconflow.cn
+RERANK_MODEL=Qwen/Qwen3-Reranker-4B
+RERANK_TOP_K=15             # 参与重排的候选数量
 HYBRID_ALPHA=0.5             # 向量检索权重
 ```
 
@@ -336,7 +359,7 @@ python scripts/build_index.py 2>&1 | tee build.log
 
 ```bash
 # 检查模型配置
-grep -E '^(LLM_|EMBEDDING_)' .env
+grep -E '^(LLM_|EMBEDDING_|RERANK_)' .env
 
 # 测试 embedding 生成
 python -c "from app.core.embedder import Embedder; e = Embedder(); print(len(e.embed_text('test')))"
@@ -385,12 +408,17 @@ print(f'Retrieved {len(chunks)} chunks')
 
 ### Skill Wrapper
 
-使用 Skill Wrapper 将 RAG 系统集成到 Claude Code Skill：
+现在有两种 skill 形态：
+
+- `skill/SKILL.md`：给 agent 平台分发使用的技能说明
+- `skill/rag_skill_wrapper.py`：给 Python 代码直接调用的 wrapper
+
+Python wrapper 示例：
 
 ```python
 from skill.rag_skill_wrapper import OpenHarmonyDocsRAGSkill
 
-skill = OpenHarmonyDocsRAGSkill(api_base_url="http://localhost:8000")
+skill = OpenHarmonyDocsRAGSkill(api_base_url="http://127.0.0.1:8000")
 
 # 问答
 result = await skill.ask_question("如何创建 UIAbility 组件？")
@@ -411,21 +439,11 @@ result = await skill.get_stats()
 
 ### MCP Server
 
-使用 MCP Server 将 RAG 系统暴露为 MCP 工具：
+真正可运行的 MCP Server 入口是 `rag_mcp.stdio_server`：
 
-```python
-from mcp.server import OpenHarmonyDocsRAGMCP
-
-mcp = OpenHarmonyDocsRAGMCP(api_base_url="http://localhost:8000")
-
-# 列出可用工具
-tools = mcp.get_tools()
-
-# 调用工具
-result = await mcp.call_tool(
-    "oh_docs_rag_query",
-    {"query": "如何创建 UIAbility 组件？", "top_k": 6}
-)
+```bash
+OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000 \
+./venv/bin/python -m rag_mcp.stdio_server
 ```
 
 **可用的 MCP 工具**：
@@ -433,6 +451,16 @@ result = await mcp.call_tool(
 - `oh_docs_rag_retrieve` - 仅检索
 - `oh_docs_rag_sync_repo` - 同步仓库
 - `oh_docs_rag_stats` - 获取统计
+
+如果你只想在 Python 里直接复用 MCP 风格工具定义，而不启动 stdio server，可以用：
+
+```python
+from rag_mcp.http_adapter import OpenHarmonyDocsRAGMCP
+
+mcp = OpenHarmonyDocsRAGMCP(api_base_url="http://127.0.0.1:8000")
+tools = mcp.get_tools()
+result = await mcp.call_tool("oh_docs_rag_query", {"query": "如何创建 UIAbility 组件？"})
+```
 
 详见 [mcp/README.md](mcp/README.md)
 

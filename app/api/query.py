@@ -107,7 +107,7 @@ async def query(request: QueryRequest):
             logger.warning(f"[{trace_id}] Retrieved chunks not relevant enough")
             return QueryResponse(
                 answer="抱歉，我在文档中没有找到足够相关的信息来回答您的问题。建议您：\n1. 尝试换一种方式提问\n2. 查看 OpenHarmony 官方文档\n3. 在开发者社区提问",
-                citations=citation_builder.build_citations(chunks),
+                citations=[],
                 trace_id=trace_id,
                 latency_ms=int((time() - start_time) * 1000),
                 used_chunks=len(chunks),

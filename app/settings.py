@@ -32,13 +32,13 @@ class Settings(BaseSettings):
     embedding_api_key: str
     embedding_base_url: str
     embedding_model: str
-    embedding_document_input_type: str
-    embedding_query_input_type: str
+    embedding_document_input_type: str = "document"
+    embedding_query_input_type: str = "query"
     embedding_document_prefix: str = ""
     embedding_query_prefix: str = ""
-    embedding_batch_size: int = 128
+    embedding_batch_size: int = 512
     embedding_max_retries: int = 5
-    embedding_retry_backoff_seconds: float = 20.0
+    embedding_retry_backoff_seconds: float = 2.0
     embedding_inter_batch_delay_seconds: float = 0.0
 
     # Documentation Repository Configuration
@@ -53,13 +53,39 @@ class Settings(BaseSettings):
 
     # Retrieval Configuration
     retrieval_top_k: int = 8
+    rerank_enabled: bool = False
+    rerank_api_key: str = ""
+    rerank_base_url: str = ""
+    rerank_model: str = ""
     rerank_top_k: int = 15
+    rerank_max_retries: int = 5
+    rerank_retry_backoff_seconds: float = 2.0
     hybrid_alpha: float = 0.5
 
     @property
     def include_dirs_list(self) -> List[str]:
         """Parse comma-separated include directories."""
         return [d.strip() for d in self.docs_include_dirs.split(",")]
+
+    @property
+    def effective_rerank_api_key(self) -> str:
+        """Reuse embedding API key when rerank key is not set."""
+        return self.rerank_api_key or self.embedding_api_key
+
+    @property
+    def effective_rerank_base_url(self) -> str:
+        """Reuse embedding base URL when rerank base URL is not set."""
+        return self.rerank_base_url or self.embedding_base_url
+
+    @property
+    def rerank_is_configured(self) -> bool:
+        """Return whether rerank has enough config to be enabled."""
+        return bool(
+            self.rerank_enabled
+            and self.rerank_model
+            and self.effective_rerank_api_key
+            and self.effective_rerank_base_url
+        )
 
 
 # Global settings instance

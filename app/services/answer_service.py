@@ -1,5 +1,6 @@
 """Answer generation service with LLM."""
 
+import re
 from typing import List, Dict
 from openai import OpenAI
 
@@ -168,4 +169,49 @@ class AnswerService:
 
         # Simple heuristic: check if top chunk has reasonable score
         top_score = chunks[0].score if chunks else 0
-        return top_score > 0.5  # Threshold can be adjusted
+        if top_score <= 0.5:
+            return False
+
+        anchor_terms = self._extract_anchor_terms(query)
+        if not anchor_terms:
+            return True
+
+        corpus = " ".join(
+            " ".join(
+                filter(
+                    None,
+                    [
+                        chunk.text,
+                        chunk.heading_path,
+                        chunk.metadata.get("path", ""),
+                        chunk.metadata.get("title", ""),
+                    ],
+                )
+            )
+            for chunk in chunks
+        ).lower()
+
+        return any(term.lower() in corpus for term in anchor_terms)
+
+    def _extract_anchor_terms(self, query: str) -> List[str]:
+        """Extract code-like or ecosystem-specific anchors from the query."""
+        matches = []
+        patterns = [
+            r'@[A-Za-z_]\w*',
+            r'\b[A-Za-z_]\w*\.[A-Za-z_]\w+\b',
+            r'\b[A-Z][A-Za-z0-9_]{1,}\b',
+            r'\b(?:android|python|kotlin|swift|objective-c|flutter|ios)\b',
+        ]
+
+        for pattern in patterns:
+            matches.extend(re.findall(pattern, query, re.IGNORECASE))
+
+        seen = set()
+        anchors = []
+        for match in matches:
+            normalized = match.lower()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            anchors.append(match)
+        return anchors

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "openharmony-docs-rag": {
+      "command": "/absolute/path/to/openharmony-docs-rag/venv/bin/python",
+      "args": ["-m", "rag_mcp.stdio_server"],
+      "cwd": "/absolute/path/to/openharmony-docs-rag",
+      "env": {
+        "OPENHARMONY_RAG_API_BASE_URL": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}

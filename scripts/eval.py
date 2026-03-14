@@ -76,7 +76,8 @@ class RAGEvaluator:
                 citations=citations,
                 expected_intent=expected_intent,
                 expected_docs=expected_docs,
-                expected_keywords=expected_keywords
+                expected_keywords=expected_keywords,
+                question_type=question_data["type"],
             )
 
             return {
@@ -108,7 +109,8 @@ class RAGEvaluator:
         citations,
         expected_intent,
         expected_docs,
-        expected_keywords
+        expected_keywords,
+        question_type: str,
     ) -> Dict[str, Any]:
         """Calculate evaluation metrics."""
         metrics = {}
@@ -125,11 +127,11 @@ class RAGEvaluator:
                 1 for expected_doc in expected_docs
                 if any(expected_doc.lower() in path for path in retrieved_paths)
             )
-            metrics["doc_recall"] = doc_matches / len(expected_docs) if expected_docs else 0
+            metrics["doc_recall"] = doc_matches / len(expected_docs) if expected_docs else 1.0
             metrics["top1_score"] = chunks[0].score
             metrics["avg_score"] = sum(c.score for c in chunks) / len(chunks)
         else:
-            metrics["doc_recall"] = 0
+            metrics["doc_recall"] = 1.0 if not expected_docs else 0
             metrics["top1_score"] = 0
             metrics["avg_score"] = 0
 
@@ -150,12 +152,20 @@ class RAGEvaluator:
         metrics["num_citations"] = len(citations)
 
         # 5. Overall success
-        metrics["overall_success"] = (
-            metrics["intent_correct"] and
-            metrics["doc_recall"] >= 0.5 and
-            metrics["keyword_recall"] >= 0.3 and
-            metrics["has_answer"]
-        )
+        if question_type == "out_of_scope":
+            metrics["overall_success"] = (
+                metrics["intent_correct"]
+                and metrics["keyword_recall"] >= 0.3
+                and not metrics["has_answer"]
+                and not metrics["has_citations"]
+            )
+        else:
+            metrics["overall_success"] = (
+                metrics["intent_correct"] and
+                metrics["doc_recall"] >= 0.5 and
+                metrics["keyword_recall"] >= 0.3 and
+                metrics["has_answer"]
+            )
 
         return metrics
 

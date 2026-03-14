@@ -1,0 +1,623 @@
+{
+  "timestamp": "2026-03-14T21:21:20.142134",
+  "total_questions": 26,
+  "results": [
+    {
+      "question": "如何创建一个 UIAbility 组件？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "基于提供的文档内容，以下是创建 UIAbility 组件的方法：\n\n## 创建 UIAbility 组件\n\n### 1. 导入 UIAbility 模块\n\n```ts\nimport { UIAbility } from '@kit.AbilityKit';\n```\n\n### 2. 创建 UIAbility 类\n\n继承 `UIAbility` 基类并实现生命周期方法：\n\n```typescript\nimport AbilityConstant from '@ohos.app.ability.AbilityConstant';\nimport hilog from '@ohos.hilog';\nimport UIAbility from '@ohos.app.ability.UIAbility';\nimport Want from '@ohos.app.ability.Want';\nimport window from '@ohos.window';\n\nexport default class EntryAbility extends UIAbility {\n  onWindowStageCreate(windowStage: window.WindowStage): void {\n    // Main window is created, set main page for this ability\n    hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageCreate');\n    windowStage.loadContent('pages/Index', (err, data) => {\n      // 加载页面内容\n    });\n  }\n}\n```\n\n### 3. 关键生命周期方法\n\n| 方法 | 说明 |\n|:---|:---|\n| `onCreate()` | UIAbility 创建时调用 |\n| `onWindowStageCreate()` | 窗口创建时调用，在此设置主页面 |\n| `onDestroy()` | UIAbility 销毁时调用 |\n\n### 4. 开发工具操作\n\n根据文档，还可以通过 IDE 可视化操作添加 Ability：\n- 参考指南：[在模块中添加 Ability](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-add-new-ability)\n- 同时需要 [添加 Page](https://developer.huawei.com/consumer/cn/doc/harmonyos-guides/ide-add-page)\n\n### 注意事项\n\n- UIAbility 是 Stage 模型的核心组件，用于承载应用界面\n- 需要在 `module.json5` 中配置 Ability 信息\n- 每个 UIAbility 实例对应一个独立的任务，拥有独立的窗口\n\n如需了解更多用法，可参考文档中的：\n- [UIAbility组件基本用法](application-models/uiability-usage.md)\n- [启动应用内的UIAbility组件](application-models/uiability-intra-device-interaction.md)",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.6666666666666666,
+        "doc_recall": 1.0,
+        "top1_score": 0.964587585,
+        "avg_score": 0.923167935625,
+        "keyword_recall": 0.75,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何使用 ArkTS 开发一个简单的页面？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "未找到相关信息",
+      "num_chunks": 0,
+      "num_citations": 0,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 0,
+        "top1_score": 0,
+        "avg_score": 0,
+        "keyword_recall": 0.0,
+        "has_answer": false,
+        "has_citations": false,
+        "num_citations": 0,
+        "overall_success": false
+      },
+      "success": false
+    },
+    {
+      "question": "如何实现应用间的数据共享？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "基于提供的文档内容，OpenHarmony 应用间数据共享有以下几种实现方式：\n\n## 一、一对多跨应用数据共享\n\n### 1. 通过 DataShareExtensionAbility 实现数据共享（仅对系统应用开放）\n\n**适用场景**：跨应用复杂业务场景，支持拉起数据提供方的应用以实现数据访问。\n\n**运作机制**：\n- **数据提供方**：`DataShareExtensionAbility`，可选择性实现增、删、改、查及文件打开等功能\n- **数据访问方**：通过 `createDataShareHelper()` 创建工具类访问数据\n- 双方通过 **IPC 通信**，数据可通过数据库或其他存储方式实现\n- **ResultSet** 通过共享内存存储查询结果集\n\n**参考实例**：\n- [系统应用跨应用数据共享（ArkTS）（Full SDK）（API9）](https://gitcode.com/openharmony/applications_app_samples/tree/master/code/SystemFeature/DataManagement/CrossAppDataShare)\n\n### 2. 通过数据管理服务实现数据共享静默访问（仅对系统应用开放）\n\n**核心代码示例**：\n\n```ts\nimport { dataShare } from '@kit.ArkData';\nimport { UIAbility } from '@kit.AbilityKit';\nimport { window } from '@kit.ArkUI';\n\nlet dseUri = 'datashare:///com.acts.ohos.data.datasharetest/entry/DB00/TBL00';\nlet abilityContext: Context;\n\nexport default class EntryAbility extends UIAbility {\n  onWindowStageCreate(windowStage: window.WindowStage) {\n    abilityContext = this.context;\n    dataShare.enableSilentProxy(abilityContext, dseUri);  // 启用静默代理\n  }\n}\n```\n\n### 3. 应用间配置共享（ArkTS）\n\n文档中提及但未提供详细实现，可参考 `database/share-config.md`。\n\n---\n\n## 二、多对多跨应用数据共享\n\n### 通过标准化数据通路实现数据共享\n\n| 语言 | 文档路径 |\n|:---|:---|\n| ArkTS | `database/unified-data-channels.md` |\n| C/C++ | `database/unified-data-channels-c.md` |\n\n---\n\n## 三、关键注意事项\n\n| 方案 | 权限要求 | 适用对象 |\n|:---|:---|:---|\n| DataShareExtensionAbility | 系统权限 | 仅系统应用 |\n| 静默访问 | 系统权限 | 仅系统应用 |\n| 标准化数据通路 | 需申请 `ohos.permission.DISTRIBUTED_DATASYNC` | 通用 |\n| 配置共享 | 视具体场景 | 通用 |\n\n> **多端协同场景**：若涉及跨设备数据共享，需申请 `ohos.permission.DISTRIBUTED_DATASYNC` 权限，并在应用首次启动时向用户弹窗申请授权。\n\n---\n\n## 推荐方案\n\n1. **系统应用**：优先使用 **DataShareExtensionAbility** 或 **静默访问**，功能完整且支持复杂业务逻辑\n2. **普通应用**：使用 **标准化数据通路** 实现多对多数据共享\n3. **简单配置共享**：参考 **应用间配置共享** 文档\n\n如需更详细的实现步骤，建议查阅对应的具体开发指南文档。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 0.5,
+        "top1_score": 0.9116044600000001,
+        "avg_score": 0.7874330425,
+        "keyword_recall": 0.6666666666666666,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何使用 Preferences 存储数据？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "根据文档内容，OpenHarmony 提供了 **ArkTS** 和 **C/C++** 两种方式来使用 Preferences 存储数据。以下是具体的使用方法：\n\n---\n\n## 一、ArkTS 方式（推荐）\n\n### 1. 获取 Preferences 实例\n```typescript\nimport { preferences } from '@kit.ArkData';\n\n// 获取 Preferences 实例\nlet dataPreferences: preferences.Preferences = preferences.getPreferencesSync(context, {\n  name: 'myPreferences'\n});\n```\n\n### 2. 写入数据\n```typescript\n// 同步写入数据\ndataPreferences.putSync('key', 'value');\n```\n\n### 3. 数据持久化（关键步骤）\n应用存入数据后，必须使用 `flush()` 方法实现数据持久化：\n\n```typescript\ndataPreferences.flush((err: BusinessError) => {\n  if (err) {\n    console.error(`Failed to flush. Code:${err.code}, message:${err.message}`);\n    return;\n  }\n  console.info('Succeeded in flushing.');\n});\n```\n\n### 4. 其他常用操作\n| 操作 | 接口 |\n|:---|:---|\n| 读取数据 | `getSync(key: string, defValue: ValueType): ValueType` |\n| 检查Key是否存在 | `hasSync(key: string): boolean` |\n| 删除数据 | `deleteSync(key: string): void` |\n\n---\n\n## 二、C/C++ 方式\n\n### 1. 创建配置选项并设置参数\n```c\nOH_PreferencesOption *option = OH_PreferencesOption_Create();\nOH_PreferencesOption_SetFileName(option, \"testdb\");\nOH_PreferencesOption_SetDataGroupId(option, \"\");\nOH_PreferencesOption_SetBundleName(option, \"com.example\");\n\n// 设置存储模式（需先判断平台支持）\nbool isGskvSupported = false;\nOH_Preferences_IsStorageTypeSupported(PREFERENCES_STORAGE_GSKV, &isGskvSupported);\nif (isGskvSupported) {\n    OH_PreferencesOption_SetStorageType(option, PREFERENCES_STORAGE_GSKV);\n} else {\n    OH_PreferencesOption_SetStorageType(option, PREFERENCES_STORAGE_XML);\n}\n```\n\n### 2. 设置 KV 数据并持久化\n```c\n// 设置不同类型的数据\nOH_Preferences_SetInt(preference, \"key_int\", 0);\nOH_Preferences_SetBool(preference, \"key_bool\", true);\nOH_Preferences_SetString(preference, \"key_string\", \"string value\");\n\n// 必须调用 Flush 持久化\nOH_Preferences_Flush(preference);\n```\n\n### 3. 读取数据\n```c\n// 读取整型\nint intValue = 0;\nOH_Preferences_GetInt(preference, \"key_int\", &intValue);\n\n// 读取字符串（注意释放内存）\nchar *stringValue = nullptr;\nuint32_t valueLen = 0;\nOH_Preferences_GetString(preference, \"key_string\", &stringValue, &valueLen);\n// 使用完后必须释放\nOH_Preferences_FreeString(stringValue);\n```\n\n---\n\n## 三、使用场景与注意事项\n\n| 项目 | 说明 |\n|:---|:---|\n| **适用场景** | 轻量级键值型数据，如用户个性化设置（字体大小、夜间模式等） |\n| **数据类型** | 支持 number、string、boolean 及对象类型 |\n| **关键注意** | 调用 `putSync` 后必须调用 `flush()` 才能真正持久化到文件 |\n| **推荐方案** | 优先使用 **ArkTS 方式**，开发效率更高 |\n\n如需了解更多接口详情，请参考 [用户首选项 API 文档](../reference/apis-arkdata/js-apis-data-preferences.md)。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.947102468,
+        "avg_score": 0.92456837525,
+        "keyword_recall": 0.6666666666666666,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何实现页面路由跳转？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "基于提供的文档内容，以下是实现页面路由跳转的几种方式：\n\n## 1. 使用 Navigation + NavPathStack（推荐）\n\n这是 ArkTS 中推荐的页面导航方式，适用于 Stage 模型。\n\n**基本用法：**\n\n```typescript\n@Entry\n@Component\nstruct SystemRoutingTable {\n  pageStack : NavPathStack = new NavPathStack();\n\n  build() {\n    Navigation(this.pageStack){\n    }.onAppear(() => {\n      this.pageStack.pushPathByName('PageOne', null, false);\n    })\n    .hideNavBar(true)\n  }\n}\n```\n\n**跨包跳转示例：**\n\n```typescript\n// 在页面中获取 NavPathStack 并进行跳转\n@Component\nexport struct ControlPanel {\n  private stack: NavPathStack | undefined = undefined;\n\n  aboutToAppear(): void {\n    let info = this.queryNavigationInfo();\n    this.stack = info?.pathStack;\n  }\n\n  build() {\n    Column({ space: 20 }) {\n      Button('push HapPageA').onClick(() => {\n        this.stack?.pushPath({ name: 'HapPageA' });\n      })\n      // 支持跨 HAP/HAR/HSP 包跳转\n      Button('push HarPageA').onClick(() => {\n        this.stack?.pushPath({ name: 'HarPageA' });\n      })\n    }\n  }\n}\n```\n\n## 2. 使用 Router（不推荐，但兼容旧版本）\n\n通过 `UIContext` 获取 `Router` 对象：\n\n```typescript\n// Index.ets\nimport { BusinessError } from '@kit.BasicServicesKit';\n\n@Entry\n@Component\nstruct Index {\n  build() {\n    Button('Next')\n      .onClick(() => {\n        let uiContext : UIContext = this.getUIContext();\n        let router = uiContext.getRouter();\n        // 跳转到第二页\n        router.pushUrl({ url: 'pages/Second' }).then(() => {\n          console.info('Succeeded in jumping to the second page.')\n        }).catch((err: BusinessError) => {\n          console.error(`Failed to jump to the second page.Code is ${err.code}, message is ${err.message}`)\n        })\n      })\n  }\n}\n```\n\n**返回上一页：**\n```typescript\nthis.getUIContext().getRouter().back();\n```\n\n## 3. 使用命名路由（跨共享包）\n\n```typescript\nthis.getUIContext().getRouter().pushNamedRoute({\n  name: 'myPage'\n});\n```\n\n## 关键注意事项\n\n| 项目 | 说明 |\n|:---|:---|\n| **推荐方案** | 使用 `Navigation` + `NavPathStack`，这是官方推荐的导航方式 |\n| **配置要求** | 使用 router 时，需在 `main_pages.json` 中配置所有跳转页面 |\n| **生命周期限制** | 禁止在 `onInit` 和 `onReady` 中调用页面路由方法，需在页面渲染完成后调用 |\n| **获取方式** | 通过 `this.getUIContext().getRouter()` 或 `this.queryNavigationInfo()?.pathStack` 获取路由对象 |\n\n## 参考文档\n\n- [Navigation跨包路由开发步骤](zh-cn/application-dev/ui/arkts-navigation-cross-package.md)\n- [构建第一个ArkTS应用 - 页面跳转](zh-cn/application-dev/quick-start/start-with-ets-stage.md)\n- [Router切换Navigation指南](zh-cn/application-dev/ui/arkts-router-to-navigation.md)",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 1.033919068,
+        "avg_score": 0.9434883363750001,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何使用 HTTP 请求网络数据？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "基于提供的文档内容，以下是使用 HTTP 请求网络数据的完整步骤：\n\n## 使用 HTTP 请求网络数据\n\n### 1. 导入所需模块\n\n```TypeScript\nimport { http } from '@kit.NetworkKit';\nimport { BusinessError } from '@kit.BasicServicesKit';\nimport { common } from '@kit.AbilityKit';\nimport { hilog } from '@kit.PerformanceAnalysisKit';\n```\n\n### 2. 创建 HttpRequest 对象\n\n```TypeScript\nlet context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;\n// 每一个httpRequest对应一个HTTP请求任务，不可复用。\nlet httpRequest = http.createHttp();\n```\n\n### 3. 发起 HTTP 请求并解析响应\n\n```TypeScript\nhttpRequest.request(\n  // 填写HTTP请求的URL地址，可以带参数也可以不带参数\n  'EXAMPLE_URL',\n  {\n    method: http.RequestMethod.POST, // 可选，默认为GET\n    header: {\n      'Content-Type': 'application/json'\n    },\n    extraData: 'data to send', // POST请求体内容\n    expectDataType: http.HttpDataType.STRING, // 指定返回数据类型\n    usingCache: true, // 是否使用缓存，默认true\n    priority: 1, // 优先级，默认1\n    connectTimeout: 60000, // 连接超时时间，默认60000ms\n    readTimeout: 60000, // 读取超时时间，默认60000ms\n    usingProtocol: http.HttpProtocol.HTTP1_1, // 协议类型\n    usingProxy: false, // 是否使用代理，API 10+\n    caPath: '/path/to/cacert.pem', // CA证书路径，API 10+\n    clientCert: { // 客户端证书配置，API 11+\n      certPath: '/path/to/client.pem',\n      keyPath: '/path/to/client.key',\n      certType: http.CertType.PEM,\n      keyPassword: 'passwordToKey'\n    }\n  }, \n  (err: BusinessError, data: http.HttpResponse) => {\n    if (!err) {\n      // 请求成功，解析响应数据\n      hilog.info(0x0000, 'testTag', `Result: ${JSON.stringify(data.result)}`);\n      hilog.info(0x0000, 'testTag', `code: ${JSON.stringify(data.responseCode)}`);\n      hilog.info(0x0000, 'testTag', `header: ${JSON.stringify(data.header)}`);\n      hilog.info(0x0000, 'testTag', `cookies: ${JSON.stringify(data.cookies)}`);\n      \n      // 请求完毕，主动销毁\n      httpRequest.destroy();\n    } else {\n      // 请求失败\n      hilog.error(0x0000, 'testTag', `error: ${JSON.stringify(err)}`);\n      httpRequest.off('headersReceive'); // 取消订阅响应头事件\n      httpRequest.destroy(); // 销毁请求\n    }\n  }\n);\n```\n\n## 关键要点\n\n| 要点 | 说明 |\n|:---|:---|\n| **请求方法** | 支持 GET、POST、OPTIONS、HEAD、PUT、DELETE、TRACE、CONNECT |\n| **请求方式选择** | 数据量较少用 `request()`；大文件上传下载用 `requestInStream()`（API 10+） |\n| **HTTP 拦截器** | API 22+ 支持在请求-响应生命周期插入自定义逻辑 |\n| **资源释放** | 请求完成后必须调用 `destroy()` 主动销毁，不可复用 |\n\n## 参考实例\n\n文档中提供了以下示例代码供参考：\n- [Http（ArkTS）（API10）](https://gitcode.com/openharmony/applications_app_samples/tree/master/code/BasicFeature/Connectivity/Http)\n- [Http_case](https://gitcode.com/openharmony/applications_app_samples/tree/master/code/DocsSample/NetWork_Kit/NetWorkKit_Datatransmission/HTTP_case)\n- [HTTP_interceptor_case(网络请求拦截器)](https://gitcode.com/openharmony/applications_app_samples/tree/master/code/DocsSample/NetWork_Kit/NetWorkKit_Datatransmission/HTTP_interceptor_case)\n\n更多详细信息请参考官方文档：[http数据请求](../network/http-request.md)",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.9748661000000001,
+        "avg_score": 0.8734246868750001,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何实现应用的国际化？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "基于提供的文档内容，以下是实现 OpenHarmony 应用国际化的核心步骤和关键要点：\n\n## 1. 导入国际化模块\n\n所有国际化功能都需要从 `LocalizationKit` 导入 `i18n` 模块：\n\n```TypeScript\nimport { i18n } from '@kit.LocalizationKit';\n```\n\n根据具体功能需求，可能还需要导入其他模块：\n```TypeScript\nimport { BusinessError, commonEventManager } from '@kit.BasicServicesKit';\n```\n\n## 2. 国际化核心准则（设计阶段）\n\n根据文档，国际化开发需遵循以下准则：\n\n| 准则 | 说明 |\n|:---|:---|\n| **不做文化假设** | 不能硬编码特定地区的格式（如数字分组分隔符） |\n| **资源分离** | UI元素（图片、字符串）应从代码逻辑中分离，便于翻译替换 |\n\n## 3. 具体功能实现方向\n\n文档涵盖的国际化功能模块包括：\n\n| 功能模块 | 用途 |\n|:---|:---|\n| **系统语言与区域** | 获取/设置系统级语言和地区 |\n| **应用偏好语言** | 配置应用特定的语言偏好 |\n| **用户偏好设置** | 管理用户个性化语言选择 |\n| **日历和历法** | 支持不同地区的日历系统 |\n| **数字与度量衡** | 数字格式化、单位转换 |\n| **本地化名称显示** | 语言和地区名称的本地化展示 |\n| **字符处理** | 特定语言的字符操作 |\n\n## 4. 推荐实现流程\n\n```\n应用设计阶段（I18n）\n    ↓ 采用通用设计，不预设语言\n    ↓ 分离UI资源与代码逻辑\n应用定制阶段（L10n）\n    ↓ 配置多语言资源翻译\n    ↓ 敏感禁忌检查\n    ↓ 语言测试\n```\n\n## 注意事项\n\n- 国际化（I18n）和本地化（L10n）是两个阶段：**I18n** 是通用的设计开发能力，**L10n** 是针对具体目标语言的翻译定制\n- 完整的代码示例可参考官方示例仓库：`code/DocsSample/International/Internationalization/`\n\n如需了解某个具体功能模块的详细实现（如日历设置、数字格式化等），请指定具体方向，我可以基于文档提供更详细的步骤说明。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.9262760000000001,
+        "avg_score": 0.898894429875,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何使用通知功能？",
+      "type": "guide",
+      "predicted_intent": "guide",
+      "expected_intent": "guide",
+      "answer": "基于提供的文档内容，以下是使用 OpenHarmony 通知功能的开发指南：\n\n## 通知功能使用指南\n\n### 1. 基础准备\n\n所有通知功能都需要先导入 `notificationManager` 模块：\n\n```TypeScript\nimport { notificationManager } from '@kit.NotificationKit';\nimport { BusinessError } from '@kit.BasicServicesKit';\nimport { hilog } from '@kit.PerformanceAnalysisKit';\n\nconst TAG: string = '[PublishOperation]';\nconst DOMAIN_NUMBER: number = 0xFF00;\n```\n\n### 2. 核心功能模块\n\n| 功能 | 说明 | 文档路径 |\n|:---|:---|:---|\n| **发布文本通知** | 基础的通知发布功能 | `text-notification.md` |\n| **请求通知授权** | 引导用户开启通知权限 | `notification-enable.md` |\n| **管理通知渠道** | 配置通知分类渠道（Slot） | `notification-slot.md` |\n| **更新通知** | 更新已发布的通知内容 | `notification-update.md` |\n| **取消通知** | 取消已发布的通知 | `notification-cancel.md` |\n| **管理通知角标** | 设置应用角标数字 | `notification-badge.md` |\n| **添加行为意图** | 为通知添加点击跳转等交互 | `notification-with-wantagent.md` |\n\n### 3. 开发步骤建议\n\n**推荐流程：**\n\n1. **先请求授权** → 参考 `notification-enable.md`（需额外导入 `common` from `@kit.AbilityKit`）\n\n2. **配置通知渠道** → 参考 `notification-slot.md`（管理通知分类）\n\n3. **发布通知** → 参考 `text-notification.md`（基础文本通知）\n\n4. **按需扩展**：\n   - 需要角标 → 参考 `notification-badge.md`\n   - 需要点击交互 → 参考 `notification-with-wantagent.md`（可查看[自定义通知示例](https://gitcode.com/openharmony/applications_app_samples/blob/master/code/BasicFeature/Notification/CustomNotification/README_zh.md)）\n   - 需要更新/取消 → 参考对应文档\n\n### 4. 系统级功能（仅限系统应用）\n\n**订阅通知**（`notification-subscription-sys.md`）：\n- 需要申请 `ohos.permission.NOTIFICATION_CONTROLLER` 权限\n- 额外导入：`notificationSubscribe` from `@kit.NotificationKit`\n\n```TypeScript\nimport { notificationSubscribe, notificationManager } from '@kit.NotificationKit';\n```\n\n### 5. 代码示例资源\n\n官方提供了完整的示例代码，位于：\n- **基础示例**：`code/DocsSample/Notification-Kit/Notification/`\n- **自定义通知示例**：`code/BasicFeature/Notification/CustomNotification/`\n\n---\n\n**注意**：文档中未提供各 API 的具体调用方法和参数详情，建议查看上述链接中的完整示例代码获取详细实现。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.99151377,
+        "avg_score": 0.95591560025,
+        "keyword_recall": 0.6666666666666666,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "UIAbility 的 onCreate 方法有哪些参数？",
+      "type": "api_usage",
+      "predicted_intent": "api_usage",
+      "expected_intent": "api_usage",
+      "answer": "根据文档内容，**UIAbility 的 onCreate 方法**有两个参数：\n\n| 参数名 | 类型 | 必填 | 说明 |\n| -------- | -------- | -------- | -------- |\n| want | [Want](js-apis-app-ability-want.md) | 是 | 调用方拉起该UIAbility时传递的数据。 |\n| launchParam | [AbilityConstant.LaunchParam](js-apis-app-ability-abilityConstant.md#launchparam) | 是 | 应用启动参数，包含应用启动原因、应用上次退出原因等。 |\n\n**接口定义：**\n```ts\nonCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void\n```\n\n**完整代码示例：**\n```ts\nimport { UIAbility, AbilityConstant, Want } from '@kit.AbilityKit';\nimport { hilog } from '@kit.PerformanceAnalysisKit';\n\nexport default class MyUIAbility extends UIAbility {\n  onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {\n    // 执行异步任务\n    hilog.info(0x0000, 'testTag',\n      `onCreate, want: ${want.abilityName}, the launchReason is ${launchParam.launchReason}, the lastExitReason is ${launchParam.lastExitReason}`);\n  }\n}\n```\n\n**关键说明：**\n- 该回调仅在 UIAbility **冷启动**时触发\n- 同步接口，不支持异步回调\n- 从 **API version 11** 开始支持在原子化服务中使用\n- **系统能力**：SystemCapability.Ability.AbilityRuntime.AbilityCore\n\n> **参考文档路径**：`zh-cn/application-dev/reference/apis-ability-kit/js-apis-app-ability-uiAbility.md`",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.6666666666666666,
+        "doc_recall": 1.0,
+        "top1_score": 1.1035627460000001,
+        "avg_score": 1.0299648037250002,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "router.pushUrl 方法如何使用？",
+      "type": "api_usage",
+      "predicted_intent": "api_usage",
+      "expected_intent": "api_usage",
+      "answer": "根据文档内容，`router.pushUrl` 方法有两种使用方式：**已废弃的全局 API**（API version 9-18）和**推荐的 Router 实例方法**（API version 10+）。以下是详细说明：\n\n---\n\n## 一、推荐方式：通过 UIContext 获取 Router 实例调用\n\n从 API version 10 开始，建议通过 `UIContext.getRouter()` 获取 `Router` 实例，再调用 `pushUrl`。\n\n### 1. Promise 异步回调（无 mode 参数）\n\n```typescript\nimport { UIContext } from '@ohos.arkui';\n\n// 获取 UIContext 和 Router 实例\nlet uiContext: UIContext = // 获取当前页面的 UIContext\nlet router = uiContext.getRouter();\n\n// 调用 pushUrl\nrouter.pushUrl({\n  url: 'pages/targetPage',\n  params: { key: 'value' }  // 可选，传递页面参数\n}).then(() => {\n  console.info('跳转成功');\n}).catch((err: Error) => {\n  console.error(`跳转失败: ${err.message}`);\n});\n```\n\n**接口定义：** `pushUrl(options: router.RouterOptions): Promise<void>`\n\n| 参数 | 类型 | 必填 | 说明 |\n|:---|:---|:---|:---|\n| options | router.RouterOptions | 是 | 跳转页面描述信息，包含 `url` 和可选的 `params` |\n\n---\n\n### 2. Promise 异步回调（带 mode 参数）\n\n```typescript\nimport { UIContext, router } from '@ohos.arkui';\n\nlet uiContext: UIContext = // 获取当前页面的 UIContext\nlet routerInstance = uiContext.getRouter();\n\n// 使用 RouterMode 指定跳转模式\nrouterInstance.pushUrl({\n  url: 'pages/targetPage',\n  params: { data: 'test' }\n}, router.RouterMode.Standard)  // 或 router.RouterMode.WithAnimation\n.then(() => {\n  console.info('跳转成功');\n}).catch((err: Error) => {\n  console.error(`跳转失败: ${err.code}, ${err.message}`);\n});\n```\n\n**接口定义：** `pushUrl(options: router.RouterOptions, mode: router.RouterMode): Promise<void>`\n\n| 参数 | 类型 | 必填 | 说明 |\n|:---|:---|:---|:---|\n| options | router.RouterOptions | 是 | 跳转页面描述信息 |\n| mode | router.RouterMode | 是 | 跳转模式：`Standard` 或 `WithAnimation` |\n\n---\n\n### 3. Callback 异步回调\n\n```typescript\nimport { UIContext } from '@ohos.arkui';\n\nlet uiContext: UIContext = // 获取当前页面的 UIContext\nlet router = uiContext.getRouter();\n\nrouter.pushUrl({\n  url: 'pages/targetPage',\n  params: { key: 'value' }\n}, (err: Error) => {\n  if (err) {\n    console.error(`跳转失败: ${err.message}`);\n  } else {\n    console.info('跳转成功');\n  }\n});\n```\n\n**接口定义：** `pushUrl(options: router.RouterOptions, callback: AsyncCallback<void>): void`\n\n---\n\n## 二、已废弃方式：全局 router.pushUrl（不推荐）\n\n> ️ **警告**：从 API version 18 开始已废弃，建议迁移到上述推荐方式。\n\n```typescript\nimport router from '@ohos.router';\n\n// 方式1：Promise 回调\nrouter.pushUrl({\n  url: 'pages/targetPage',\n  params: { data: 'test' }\n}).catch((err: Error) => {\n  console.error(err.message);\n});\n\n// 方式2：带 mode 参数\nrouter.pushUrl({\n  url: 'pages/targetPage'\n}, router.RouterMode.Standard);\n\n// 方式3：Callback 回调\nrouter.pushUrl({\n  url: 'pages/targetPage'\n}, (err: Error) => {\n  if (err) { console.error(err.message); }\n});\n\n// 方式4：Callback + mode\nrouter.pushUrl({\n  url: 'pages/targetPage'\n}, router.RouterMode.Standard, (err: Error) => {\n  if (err) { console.error(err.message); }\n});\n```\n\n---\n\n## 三、关键注意事项\n\n| 项目 | 说明 |\n|:---|:---|\n| **API 版本** | 推荐方式需 API version 10+；废弃方式 API version 9-18 |\n| **原子化服务** | 从 API version 11 开始支持 |\n| **系统能力** | SystemCapability.ArkUI.ArkUI.Full |\n| **错误码** | 401（参数错误）、100001（内部错误）、100002（URI 错误）、100003（页面栈溢出） |\n| **替代方案** | API version 8 的 `router.push` 已从 version 9 废弃，统一使用",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 1.0,
+        "doc_recall": 1.0,
+        "top1_score": 1.1803508002,
+        "avg_score": 1.138393309625,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "Preferences.put 方法的参数类型是什么？",
+      "type": "api_usage",
+      "predicted_intent": "api_usage",
+      "expected_intent": "api_usage",
+      "answer": "根据提供的文档内容，`Preferences.put` 方法有多个版本，参数类型如下：\n\n## 1. @ohos.data.preferences (用户首选项)\n\n### Promise 异步版本（API 11+）\n```typescript\nput(key: string, value: ValueType): Promise<void>\n```\n- **key**: `string` - 存储的Key，不能为空，有最大长度限制\n- **value**: `ValueType` - 存储的新值\n\n### Callback 异步版本\n```typescript\nput(key: string, value: ValueType, callback: AsyncCallback<void>): void\n```\n- **key**: `string`\n- **value**: `ValueType`\n- **callback**: `AsyncCallback<void>` - 回调函数\n\n---\n\n## 2. @ohos.data.sendablePreferences (共享用户首选项) - API 12+\n\n```typescript\nput(key: string, value: lang.ISendable): Promise<void>\n```\n- **key**: `string`\n- **value**: `lang.ISendable` - 共享对象类型值\n\n---\n\n## 关键区别\n\n| 模块 | value 类型 | 适用场景 |\n|:---|:---|:---|\n| `@ohos.data.preferences` | `ValueType` | 普通用户首选项存储 |\n| `@ohos.data.sendablePreferences` | `lang.ISendable` | 跨线程共享数据场景 |\n\n> **注意**：`ValueType` 具体定义需参考文档中的 [ValueType](#valuetype) 类型说明。对于包含非UTF-8格式字符串的数据，建议使用 `Uint8Array` 类型存储，避免持久化文件损坏。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 1.0,
+        "doc_recall": 1.0,
+        "top1_score": 1.101654554,
+        "avg_score": 1.0147361992625001,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "http.request 方法返回什么类型？",
+      "type": "api_usage",
+      "predicted_intent": "api_usage",
+      "expected_intent": "api_usage",
+      "answer": "根据文档内容，`http.request` 方法有两种重载形式，返回类型不同：\n\n## 1. Promise 方式（API 9+）\n\n```typescript\nrequest(url: string, options?: HttpRequestOptions): Promise<HttpResponse>\n```\n\n**返回类型：** `Promise<HttpResponse>`\n\n- 以 Promise 形式返回发起请求的结果\n- 成功时返回 `HttpResponse` 对象，包含 `result`、`responseCode`、`header`、`cookies` 等字段\n\n**完整代码示例：**\n\n```typescript\nimport { http } from '@kit.NetworkKit';\n\nlet httpRequest = http.createHttp();\n\nhttpRequest.request(\n  \"https://example.com\",\n  {\n    method: http.RequestMethod.GET,\n    header: { 'Content-Type': 'application/json' }\n  }\n).then((data: http.HttpResponse) => {\n  console.info('Result:' + JSON.stringify(data.result));\n  console.info('code:' + JSON.stringify(data.responseCode));\n  console.info('header:' + JSON.stringify(data.header));\n}).catch((err: Error) => {\n  console.error('Failed:' + JSON.stringify(err));\n});\n```\n\n---\n\n## 2. Callback 方式\n\n```typescript\nrequest(url: string, callback: AsyncCallback<HttpResponse>): void\n```\n\n**返回类型：** `void`（无返回值，结果通过回调函数返回）\n\n- 通过 `AsyncCallback<HttpResponse>` 回调函数异步返回结果\n- 回调参数包含错误信息和 `HttpResponse` 数据\n\n**完整代码示例：**\n\n```typescript\nimport { http } from '@kit.NetworkKit';\n\nlet httpRequest = http.createHttp();\n\nhttpRequest.request(\"https://example.com\", (err: BusinessError, data: http.HttpResponse) => {\n  if (!err) {\n    console.info('Result:' + JSON.stringify(data.result));\n    console.info('code:' + JSON.stringify(data.responseCode));\n    console.info('header:' + JSON.stringify(data.header));\n  } else {\n    console.error('Failed:' + JSON.stringify(err));\n  }\n});\n```\n\n---\n\n## 关键说明\n\n| 特性 | 说明 |\n|:---|:---|\n| **数据大小限制** | 默认 5MB；API version 23+ 支持 50MB，超出需设置 `maxLimit` 或使用 `requestInStream` |\n| **需要权限** | `ohos.permission.INTERNET` |\n| **原子化服务支持** | 从 API version 11 开始 |\n| **系统能力** | `SystemCapability.Communication.NetStack` |\n\n**官方文档路径：** `zh-cn/application-dev/reference/apis-network-kit/js-apis-http.md`",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 1.0,
+        "doc_recall": 1.0,
+        "top1_score": 1.0328137248000002,
+        "avg_score": 0.8688717841375001,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "@State 装饰器如何使用？",
+      "type": "api_usage",
+      "predicted_intent": "api_usage",
+      "expected_intent": "api_usage",
+      "answer": "根据提供的文档内容，以下是关于 `@State` 装饰器的使用说明：\n\n## @State 装饰器使用说明\n\n### 基本用法\n\n`@State` 是 ArkUI 状态管理 V1 中的核心装饰器，用于装饰组件的状态变量。当状态变量变化时，会自动触发 UI 刷新。\n\n### 使用示例\n\n```ts\n@Entry\n@Component\nstruct Index {\n  @State num: number = 0;  // 使用@State装饰状态变量\n\n  build() {\n    Column() {\n      Text(`num is: ${this.num}`)\n        .onClick(() => {\n          this.num++;  // 修改状态变量，触发UI刷新\n        })\n    }\n  }\n}\n```\n\n### 与 @Watch 结合使用（状态监听）\n\n`@State` 可以与 `@Watch` 装饰器结合，监听状态变化并执行回调：\n\n```ts\n@Entry\n@Component\nstruct Index {\n  @State @Watch('onChange') num: number = 0; // @Watch入参为函数名\n\n  onChange() {\n    console.info(`num change to ${this.num}`);\n  }\n\n  build() {\n    Column() {\n      Text(`num is: ${this.num}`)\n        .onClick(() => {\n          this.num++; // 会触发onChange函数回调\n        })\n    }\n  }\n}\n```\n\n### 重要限制\n\n根据文档，在 **V1 中使用 V2 组件** 时，`@State` 有以下限制：\n\n| 支持类型 | 不支持类型（会导致编译报错）|\n|---------|------------------------|\n| boolean、number、string、null、undefined | Class 类型、Array、Map、Set、Date |\n\n**示例：错误用法**\n```ts\n// ❌ 以下会造成编译报错\n@State info: ClassType = new ClassType();\n@State set: Set<number> = new Set();\n```\n\n### 相关装饰器行为一致\n\n以下装饰器在 V1 中使用 V2 组件时，行为与 `@State` 保持一致，同样仅支持简单类型：\n\n- `@Prop`\n- `@Link`\n- `@ObjectLink`\n- `@Provide` / `@Consume`\n- `@StorageProp` / `@StorageLink`\n- `@LocalStorageProp` / `@LocalStorageLink`\n\n### 版本支持\n\n- **卡片能力**：从 API version 9 开始支持在 ArkTS 卡片中使用\n- **原子化服务**：从 API version 11 开始支持\n\n### 官方文档路径\n\n- `@Watch` 详细用法：[`@Watch`装饰器：状态变量更改通知](../../../ui/state-management/arkts-watch.md)\n- V1/V2 混用指导：[`zh-cn/application-dev/ui/state-management/arkts-v1-v2-mixusage-before-api-version.md`](zh-cn/application-dev/ui/state-management/arkts-v1-v2-mixusage-before-api-version.md)",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 1.0,
+        "doc_recall": 1.0,
+        "top1_score": 0.9625381480000001,
+        "avg_score": 0.8827487735625,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "Text 组件有哪些属性？",
+      "type": "api_usage",
+      "predicted_intent": "api_usage",
+      "expected_intent": "api_usage",
+      "answer": "根据提供的文档内容，Text 组件的属性按功能分类如下：\n\n## 布局与对齐\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| baselineOffset | 设置文本基线的偏移量 | - |\n| halfLeading | 设置文本是否垂直居中 | 12+ |\n| textAlign | 设置文本段落在水平方向的对齐方式 | - |\n| textContentAlign | 设置文本内容区在组件内的垂直对齐方式 | 21+ |\n| textVerticalAlign | 设置文本段落在垂直方向的对齐方式 | 20+ |\n\n## 字体样式\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| decoration | 设置文本装饰线样式及其颜色 | - |\n| font / fontColor / fontFamily / fontSize / fontStyle / fontWeight | 设置字体相关样式 | 10+/12+ |\n| fontFeature | 设置文字特性效果 | 12+ |\n| letterSpacing | 设置文本字符间距 | - |\n| shaderStyle | 设置文本渐变或纯色效果 | 20+ |\n| textCase | 设置文本大小写 | - |\n| textShadow | 设置文字阴影效果 | 10+ |\n\n## 文本溢出、断行与折行\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| ellipsisMode | 设置省略位置 | 11+ |\n| lineBreakStrategy | 设置折行规则 | 12+ |\n| marqueeOptions | 设置文本跑马灯模式的配置项 | 18+ |\n| textOverflow | 设置文本超长时的显示方式 | - |\n| wordBreak | 设置断行规则 | 11+ |\n\n## 行与段落\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| enableAutoSpacing | 设置是否开启中文与西文的自动间距 | 20+ |\n| lineHeight / lineHeightMultiple / lineSpacing | 设置行高相关属性 | -/22+/12+ |\n| maxLineHeight / minLineHeight | 设置最大/最小行高 | 22+ |\n| maxLines / minLines | 设置最大/最小行数 | -/22+ |\n| optimizeTrailingSpace | 优化行尾空格 | 20+ |\n| textIndent | 设置首行文本缩进 | 10+ |\n\n## 字体自适应\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| heightAdaptivePolicy | 设置文本自适应布局调整字号的方式 | 10+ |\n| maxFontScale / minFontScale | 设置最大/最小字体缩放倍数 | 12+ |\n| maxFontSize / minFontSize | 设置最大/最小显示字号 | - |\n\n## 文本选择与复制\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| caretColor | 设置文本框选中区域手柄颜色 | 14+ |\n| copyOption | 设置组件是否支持文本可复制粘贴 | 9+ |\n| draggable | 设置选中文本拖拽效果 | 9+ |\n| selectedBackgroundColor | 设置文本选中底板颜色 | 14+ |\n| selection | 设置选中区域 | 11+ |\n| textSelectable | 设置是否支持文本可选择、可获焦 | 12+ |\n\n## 文本识别\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| dataDetectorConfig | 设置文本识别配置 | 11+ |\n| enableDataDetector | 设置是否进行文本特殊实体识别 | 11+ |\n| enableSelectedDataDetector | 设置是否对选中文本进行实体识别 | 22+ |\n\n## 自定义菜单\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| bindSelectionMenu | 设置自定义选择菜单 | 11+ |\n| editMenuOptions | 设置自定义菜单扩展项 | 12+ |\n\n## 其他功能\n| 属性 | 说明 | 版本 |\n|------|------|------|\n| contentTransition | 文本动效属性 | 20+ |\n| enableHapticFeedback | 设置是否开启触控反馈 | 13+ |\n| privacySensitive | 设置是否支持卡片敏感隐私信息 | 12+ |\n\n> **说明：** 除上述特有属性外，Text 组件还支持[通用属性](ts-component-general-attributes.md)。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 1.068306954,
+        "avg_score": 1.0139017728125002,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "ArkUI 组件的设计规范是什么？",
+      "type": "design_spec",
+      "predicted_intent": "design_spec",
+      "expected_intent": "design_spec",
+      "answer": "未找到相关信息",
+      "num_chunks": 0,
+      "num_citations": 0,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 0,
+        "top1_score": 0,
+        "avg_score": 0,
+        "keyword_recall": 0.0,
+        "has_answer": false,
+        "has_citations": false,
+        "num_citations": 0,
+        "overall_success": false
+      },
+      "success": false
+    },
+    {
+      "question": "OpenHarmony 的 UX 设计原则有哪些？",
+      "type": "design_spec",
+      "predicted_intent": "design_spec",
+      "expected_intent": "design_spec",
+      "answer": "基于提供的文档内容，OpenHarmony 的 UX 设计原则主要包括以下几个方面：\n\n## 核心设计原则\n\n### 1. 全场景体验优先原则\n> 来源：`zh-cn/design/ux-design/app-ux-design.md`\n\n- 优先确保用户在不同设备上获得与默认设备类似的体验\n- 充分利用设备优势使体验最大化\n\n---\n\n## 视觉设计原则\n\n### 2. 系统图标设计原则\n> 来源：`zh-cn/design/ux-design/visual-icons.md`\n\n| 原则 | 说明 |\n|:---|:---|\n| **精致简约** | 脱胎于几何形状，精简线条，精确控制比例和结构位置 |\n| **独特考究** | 运用开口细节交代线条穿插和叠压关系，负型体现阴影和空间感 |\n| **年轻化设计** | 造型和隐喻上增加年轻化设计语言，风格年轻时尚 |\n| **友好亲近** | 避免尖锐直角，传递亲近、友好的视觉体验 |\n\n### 3. 应用图标设计原则\n> 来源：`zh-cn/design/ux-design/visual-app-icons.md`\n\n| 原则 | 说明 |\n|:---|:---|\n| **简洁优雅** | 元素简洁，线条优雅，传递设计美学 |\n| **极速达意** | 图形准确传达功能、服务和品牌，具有易读性和识别性 |\n| **情感表达** | 通过图形和色彩概括表达情感，传达品牌视觉形象 |\n\n---\n\n## 设计规范体系结构\n\n完整的 UX 设计规范涵盖以下领域（`zh-cn/design/ux-design/Readme-CN.md`）：\n\n- **应用架构设计**：导航结构、页面结构\n- **界面布局**：栅格系统、自适应布局、响应式布局\n- **人机交互**：交互基础、输入方式、交互事件归一\n- **视觉风格**：视觉基础、色彩、字体\n\n---\n\n> **注意**：文档中关于\"设计要点\"的具体内容在 `app-ux-design.md` 中显示不完整（以\"---\"截断），仅明确提及了全场景体验相关的多设备设计原则。如需更完整的 UX 设计原则细节，建议查阅完整的官方设计规范文档。",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.9182613700000001,
+        "avg_score": 0.8132744701250001,
+        "keyword_recall": 0.6666666666666666,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "按钮组件的设计规范是什么？",
+      "type": "design_spec",
+      "predicted_intent": "design_spec",
+      "expected_intent": "design_spec",
+      "answer": "基于提供的文档内容，按钮组件的设计规范如下：\n\n## 设计原则\n- 按钮是**系统与用户行为间的桥梁**\n- 在界面上应**突出显示**，通过**颜色填充**强调当前的重要操作\n\n## 文字规范\n| 属性 | 要求 |\n|------|------|\n| 对齐方式 | **居中**，不能靠左或靠右 |\n| 换行 | **禁止换行**，单行显示 |\n| 长度 | 中文 **2-4 个字** |\n\n## 开发资源\n- 基础按钮组件开发文档：[Button 组件](https://gitee.com/openharmony/docs/blob/master/zh-cn/application-dev/reference/arkui-ts/ts-basic-components-button.md)\n- 状态按钮（Toggle）开发文档：[Toggle 组件](https://gitee.com/openharmony/docs/blob/master/zh-cn/application-dev/reference/arkui-ts/ts-basic-components-toggle.md)\n\n---\n\n**文档来源**：`zh-cn/design/ux-design/multimodal-button.md`",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.81505112,
+        "avg_score": 0.69090582925,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "什么是 UIAbility？",
+      "type": "concept",
+      "predicted_intent": "concept",
+      "expected_intent": "concept",
+      "answer": "## UIAbility 定义\n\n**UIAbility** 是 OpenHarmony 中**包含UI界面的应用组件**，是系统调度的基本单元，为应用提供绘制界面的窗口。\n\n---\n\n## 核心特性\n\n| 特性 | 说明 |\n|:---|:---|\n| **UI承载** | 包含UI界面，用于与用户交互 |\n| **系统调度单元** | 作为系统调度的基本单元 |\n| **窗口提供** | 为应用提供绘制界面的窗口 |\n| **跨端能力** | 支持应用组件级的跨端迁移和多端协同 |\n| **多设备/多窗口** | 支持多设备和多窗口形态 |\n\n---\n\n## 与 PageAbility 的关键区别\n\n| 对比项 | UIAbility | PageAbility |\n|:---|:---|:---|\n| **所属模型** | **Stage模型**（新） | FA模型（旧） |\n| **开发方式** | 支持派生扩展 | 通过固定入口文件，无法派生 |\n| **生命周期** | 与 WindowStage 关联 | 通过 app.js/app.ets 回调实现 |\n\n> 文档明确指出：PageAbility 是 **FA模型** 下的组件，而 UIAbility 是 **Stage模型** 下的对应组件。\n\n---\n\n## 使用建议\n\n| 场景 | 建议方案 |\n|:---|:---|\n| 任务视图中显示**一个任务** | 一个UIAbility + 多个页面（避免不必要的资源加载） |\n| 任务视图中显示**多个任务** / 需要**同时开启多个窗口** | 多个UIAbility实现不同功能 |\n\n**典型示例**：即时通讯应用中，消息列表与音视频通话采用**不同的UIAbility**开发，可方便切换任务窗口，并实现两个任务窗口共存。\n\n---\n\n## 核心生命周期回调\n\n```\nonCreate → onForeground → onBackground → onDestroy\n```\n\nUIAbility 的生命周期与 [WindowStage](../../application-dev/windowmanager/application-window-stage.md) 的生命周期存在关联关系。\n\n---\n\n## 上下文信息\n\n通过 **UIAbilityContext** 可获取：\n- 配置信息：包代码路径、Bundle名称、Ability名称、环境状态等\n- 操作方法：`startAbility()`、`connectServiceExtensionAbility()` 等",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 1.04827236,
+        "avg_score": 0.877867416,
+        "keyword_recall": 1.0,
+        "has_answer": false,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": false
+      },
+      "success": false
+    },
+    {
+      "question": "ArkTS 和 TypeScript 有什么区别？",
+      "type": "concept",
+      "predicted_intent": "concept",
+      "expected_intent": "concept",
+      "answer": "未找到相关信息",
+      "num_chunks": 0,
+      "num_citations": 0,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 0,
+        "top1_score": 0,
+        "avg_score": 0,
+        "keyword_recall": 0.0,
+        "has_answer": false,
+        "has_citations": false,
+        "num_citations": 0,
+        "overall_success": false
+      },
+      "success": false
+    },
+    {
+      "question": "什么是 Stage 模型？",
+      "type": "concept",
+      "predicted_intent": "concept",
+      "expected_intent": "concept",
+      "answer": "## Stage 模型定义\n\n**Stage模型**是当前OpenHarmony系统**主推的应用模型**，从**API 9**开始新增，是目前主推且会长期演进的模型。\n\n### 核心特征\n\n| 特性 | 说明 |\n|:---|:---|\n| **命名来源** | 提供`AbilityStage`（组件管理器）和`WindowStage`（窗口管理器）作为应用组件与窗口的\"舞台\" |\n| **引擎共享** | **多个应用组件共享同一个ArkTS引擎实例**（与FA模型的关键区别） |\n| **状态共享** | 支持应用组件间的状态共享与对象调用 |\n| **内存优化** | 降低内存开销，提升开发效率 |\n| **适用场景** | 复杂应用开发、分布式场景 |\n\n### 核心组件\n\n- **UIAbility组件**：包含UI的应用组件，用于和用户交互\n- **ExtensionAbility组件**：扩展能力组件，如服务卡片、输入法等特定场景\n- **AbilityStage**：每个HAP运行期的实例，代码首次加载时创建\n\n### 与FA模型的关键区别\n\n| 对比项 | FA模型 | Stage模型 |\n|:---|:---|:---|\n| ArkTS引擎实例 | 每个组件**独享**一个实例 | 多个组件**共享**同一个实例 |\n| 状态共享 | 不方便 | 方便共享对象和状态 |\n| 内存占用 | 较高 | 较低 |\n| 演进状态 | API 7开始，**不再主推** | API 9开始，**长期演进** |\n\n### 优势总结\n\n1. **降低内存开销** — 多组件共享引擎实例\n2. **提升开发效率** — 组件间状态共享与对象调用更便捷\n3. **规范化后台管理** — 严格管控后台进程，防止恶意行为\n4. **多设备统一** — 同一套生命周期适用于多种设备形态",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.997302672,
+        "avg_score": 0.862547796,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "什么是 DataAbility？",
+      "type": "concept",
+      "predicted_intent": "concept",
+      "expected_intent": "concept",
+      "answer": "根据提供的文档内容，**DataAbility** 是 OpenHarmony 中的一种 Ability 组件，具体定义如下：\n\n## 概念定义\n\n**DataAbility**，即\"**使用 Data 模板的 Ability**\"，是一种**不提供用户交互界面**的 Ability 组件，主要用于**对外部提供统一的数据访问对象**。\n\n## 核心特性\n\n| 特性 | 说明 |\n|:---|:---|\n| **无界面** | 不提供用户交互界面，在后台运行 |\n| **数据访问** | 对外提供数据的增、删、改、查及打开文件等接口 |\n| **持续运行** | 即使用户切换到其他应用，仍可在后台继续运行 |\n| **启动方式** | 可由 PageAbility、ServiceAbility 或其他应用启动 |\n| **跨应用共享** | 支持同设备或跨设备的不同应用间数据共享 |\n\n## 数据存储形式\n\n数据的存放形式多样，可以是：\n- **数据库**\n- **磁盘上的文件**\n\n## 典型应用场景\n\nDataAbility 主要用于以下场景：\n1. **应用管理自身数据访问** — 统一封装应用内部数据操作\n2. **与其他应用共享数据** — 提供标准化的数据访问接口\n3. **跨设备数据共享** — 实现分布式设备间的数据互通\n\n## 关键接口\n\n开发者需要实现的核心接口包括：\n- `Insert` — 插入数据\n- `Query` — 查询数据\n- `Update` — 更新数据\n- `Delete` — 删除数据\n\n> 注：`BatchInsert` 与 `ExecuteBatch` 接口已在系统中实现遍历逻辑，依赖上述四个基础接口实现批量数据处理。\n\n---\n\n**引用来源**：文档 1《DataAbility组件概述》、文档 6《创建DataAbility》",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 1.039809036,
+        "avg_score": 0.905708223,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "什么是 Want？",
+      "type": "concept",
+      "predicted_intent": "concept",
+      "expected_intent": "concept",
+      "answer": "根据提供的文档内容，**Want** 是 OpenHarmony 中用于**应用组件间信息传递的对象载体**。\n\n## 核心定义\n\nWant 是一种对象，主要用于：\n- 在应用组件之间传递信息\n- 作为 `startAbility()` 方法的参数，实现 Ability 的启动和数据传递\n\n## 关键特性\n\n| 特性 | 说明 |\n|:---|:---|\n| **核心作用** | 承载启动目标信息及传递数据 |\n| **典型字段** | `bundleName`（应用包名）、`abilityName`（Ability组件名）、`deviceId`（设备ID）、`parameters`（自定义参数）等 |\n| **使用场景** | Ability A 启动 Ability B 并传递数据 |\n\n## 两种类型\n\n| 类型 | 定义 | 适用场景 |\n|:---|:---|:---|\n| **显式 Want** | 同时指定 `abilityName` 和 `bundleName` | 应用内组件启动，有明确目标对象 |\n| **隐式 Want** | 未指定 `abilityName`，通过 `action`、`uri` 等匹配 | 调用系统或其他应用的能力，不关心具体提供方 |\n\n## 代码示例（显式 Want）\n\n```typescript\nimport { common, Want } from '@kit.AbilityKit';\n\nlet wantInfo: Want = {\n  deviceId: '',  // 空表示本设备\n  bundleName: 'com.samples.wantoverview',\n  abilityName: 'ExplicitAbility',\n};\n```\n\n> **注意**：从 API 12 开始，三方应用不再推荐使用显式 Want 拉起其他应用，建议通过**应用链接**方式实现。\n\n## 系统支持\n\n- **API 版本**：从 API 11 起支持原子化服务\n- **系统能力**：`SystemCapability.Ability.AbilityBase`\n- **C API 起始版本**：15",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.3333333333333333,
+        "doc_recall": 1.0,
+        "top1_score": 0.9884625599999999,
+        "avg_score": 0.84513743475,
+        "keyword_recall": 0.3333333333333333,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "在哪里可以找到 ArkUI 的开发文档？",
+      "type": "navigation",
+      "predicted_intent": "general",
+      "expected_intent": "general",
+      "answer": "未找到相关信息",
+      "num_chunks": 0,
+      "num_citations": 0,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.5,
+        "doc_recall": 0,
+        "top1_score": 0,
+        "avg_score": 0,
+        "keyword_recall": 0.0,
+        "has_answer": false,
+        "has_citations": false,
+        "num_citations": 0,
+        "overall_success": false
+      },
+      "success": false
+    },
+    {
+      "question": "OpenHarmony 有哪些 Kit？",
+      "type": "navigation",
+      "predicted_intent": "general",
+      "expected_intent": "general",
+      "answer": "根据提供的文档内容，OpenHarmony 包含以下 Kit：\n\n## 应用框架\n| Kit 名称 | 说明 |\n|---------|------|\n| Ability Kit | 程序框架服务 |\n| ArkData | 方舟数据管理 |\n| ArkTS | 方舟编程语言 |\n| ArkUI | 方舟UI框架 |\n| ArkWeb | 方舟Web |\n| Background Tasks Kit | 后台任务开发服务 |\n| Core File Kit | 文件基础服务 |\n| Form Kit | 卡片开发服务 |\n| IME Kit | 输入法开发服务 |\n| IPC Kit | 进程间通信服务 |\n| Localization Kit | 本地化开发服务 |\n\n## 系统\n| Kit 名称 | 说明 |\n|---------|------|\n| **安全** |\n| Asset Store Kit | 关键资产存储服务 |\n| Crypto Architecture Kit | 加解密算法框架服务 |\n| Data Protection Kit | 数据保护服务 |\n| Device Certificate Kit | 设备证书服务 |\n| Universal Keystore Kit | 密钥管理服务 |\n| User Authentication Kit | 用户认证服务 |\n| **网络** |\n| Connectivity Kit | 短距通信服务 |\n| Distributed Service Kit | 分布式管理服务 |\n| Network Kit | 网络服务 |\n| Telephony Kit | 蜂窝通信服务 |\n| **基础功能** |\n| Basics Service Kit | 基础服务 |\n| Function Flow Runtime Kit | 任务并发调度服务 |\n| Input Kit | 多模输入服务 |\n| MDM Kit | 企业设备管理服务 |\n| **硬件** |\n| Driver Development Kit | 驱动开发服务 |\n| Multimodal Awareness Kit | 多模态融合感知服务 |\n| Sensor Service Kit | 传感器服务 |\n| **调测调优** |\n| Performance Analysis Kit | 性能分析服务 |\n| Test Kit | 应用测试服务 |\n\n## 媒体\n| Kit 名称 | 说明 |\n|---------|------|\n| Audio Kit | 音频服务 |\n| AVCodec Kit | 音视频编解码服务 |\n| AVSession Kit | 音视频播控服务 |\n| Camera Kit | 相机服务 |\n| DRM Kit | 数字版权保护服务 |\n| Image Kit | 图片处理服务 |\n| Media Kit | 媒体服务 |\n| Media Library Kit | 媒体文件管理服务 |\n\n## 图形\n| Kit 名称 | 说明 |\n|---------|------|\n| ArkGraphics 2D | 方舟2D图形服务 |\n| ArkGraphics 3D | 方舟3D图形 |\n\n## 应用服务\n| Kit 名称 | 说明 |\n|---------|------|\n| Ads Kit | 广告服务 |\n| Calendar Kit | 日历服务 |\n| Contacts Kit | 联系人服务 |\n| Location Kit | 位置服务 |\n| Notification Kit | 用户通知服务 |\n\n## AI\n| Kit 名称 | 说明 |\n|---------|------|\n| MindSpore Lite Kit | 昇思推理框架服务 |\n| Neural Network Runtime Kit | Neural Network运行时服务 |\n\n## Game\n| Kit 名称 | 说明 |\n|---------|------|\n| Game Controller Kit | 游戏控制器服务 |\n\n---\n\n**参考文档路径**：`zh-cn/application-dev/Readme-CN.md`",
+      "num_chunks": 8,
+      "num_citations": 8,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.5,
+        "doc_recall": 1.0,
+        "top1_score": 0.73074776,
+        "avg_score": 0.649865065,
+        "keyword_recall": 1.0,
+        "has_answer": true,
+        "has_citations": true,
+        "num_citations": 8,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "如何在 Android 上开发应用？",
+      "type": "out_of_scope",
+      "predicted_intent": "general",
+      "expected_intent": "general",
+      "answer": "未找到相关信息",
+      "num_chunks": 8,
+      "num_citations": 0,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.9,
+        "doc_recall": 1.0,
+        "top1_score": 0.6516244,
+        "avg_score": 0.5937084475,
+        "keyword_recall": 0.3333333333333333,
+        "has_answer": false,
+        "has_citations": false,
+        "num_citations": 0,
+        "overall_success": true
+      },
+      "success": true
+    },
+    {
+      "question": "Python 如何读取文件？",
+      "type": "out_of_scope",
+      "predicted_intent": "general",
+      "expected_intent": "general",
+      "answer": "未找到相关信息",
+      "num_chunks": 8,
+      "num_citations": 0,
+      "metrics": {
+        "intent_correct": true,
+        "intent_confidence": 0.9,
+        "doc_recall": 1.0,
+        "top1_score": 0.61634994,
+        "avg_score": 0.56525257875,
+        "keyword_recall": 0.5,
+        "has_answer": false,
+        "has_citations": false,
+        "num_citations": 0,
+        "overall_success": true
+      },
+      "success": true
+    }
+  ],
+  "aggregated_metrics": {
+    "total_evaluated": 26,
+    "success_count": 21,
+    "success_rate": 0.8076923076923077,
+    "avg_intent_correct": 1.0,
+    "avg_intent_confidence": 0.517948717948718,
+    "avg_doc_recall": 0.8269230769230769,
+    "avg_top1_score": 0.8078837536923077,
+    "avg_avg_score": 0.7330683196250001,
+    "avg_keyword_recall": 0.7147435897435896,
+    "avg_has_answer": 0.7307692307692307,
+    "avg_has_citations": 0.7692307692307693,
+    "by_type": {
+      "guide": {
+        "count": 8,
+        "success_count": 7,
+        "success_rate": 0.875
+      },
+      "api_usage": {
+        "count": 6,
+        "success_count": 6,
+        "success_rate": 1.0
+      },
+      "design_spec": {
+        "count": 3,
+        "success_count": 2,
+        "success_rate": 0.6666666666666666
+      },
+      "concept": {
+        "count": 5,
+        "success_count": 3,
+        "success_rate": 0.6
+      },
+      "navigation": {
+        "count": 2,
+        "success_count": 1,
+        "success_rate": 0.5
+      },
+      "out_of_scope": {
+        "count": 2,
+        "success_count": 2,
+        "success_rate": 1.0
+      }
+    }
+  }
+}

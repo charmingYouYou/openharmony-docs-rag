@@ -1,157 +1,52 @@
-# OpenHarmony Docs RAG - Skill Wrapper
+# OpenHarmony Docs RAG - Skill
 
-Skill wrapper for OpenHarmony Chinese documentation RAG system.
+这个目录现在同时包含两种形态：
 
-## Available Actions
+- `SKILL.md`：给 agent 平台分发使用的技能说明
+- `rag_skill_wrapper.py`：给 Python 代码直接调用的异步 wrapper
 
-### 1. search_docs
+## 1. Agent Skill
 
-Search OpenHarmony documentation and retrieve relevant chunks.
+如果你要把它作为 Codex / Claude 风格的本地 skill 使用，直接分发 [skill/SKILL.md](/Volumes/PM9A1/code/codex/openharmony-docs-rag/skill/SKILL.md) 即可。
 
-**Parameters:**
-- `query` (required): Search query
-- `top_k` (optional): Number of results to return (default: 10)
-- `filters` (optional): Filter conditions
-
-**Example:**
-```python
-result = await skill.search_docs(
-    query="ArkUI 组件",
-    top_k=5,
-    filters={"kit": "ArkUI"}
-)
-```
-
-### 2. ask_question
-
-Ask a question about OpenHarmony documentation and get an answer with citations.
-
-**Parameters:**
-- `query` (required): Question to ask
-- `top_k` (optional): Number of documents to retrieve (default: 6)
-- `filters` (optional): Filter conditions
-
-**Example:**
-```python
-result = await skill.ask_question(
-    query="如何创建 UIAbility 组件？",
-    top_k=6
-)
-```
-
-### 3. sync_repository
-
-Sync OpenHarmony documentation repository to get the latest updates.
-
-**Example:**
-```python
-result = await skill.sync_repository()
-```
-
-### 4. get_stats
-
-Get statistics about the indexed OpenHarmony documentation.
-
-**Example:**
-```python
-result = await skill.get_stats()
-```
-
-## Setup
-
-### 1. Start the RAG API
+技能默认访问：
 
 ```bash
-cd openharmony-docs-rag
-python app/main.py
+OPENHARMONY_RAG_API_BASE_URL=http://localhost:8000
 ```
 
-### 2. Use the Skill
+## 2. Python Wrapper
 
 ```python
 from skill.rag_skill_wrapper import OpenHarmonyDocsRAGSkill
 
-skill = OpenHarmonyDocsRAGSkill(api_base_url="http://localhost:8000")
+skill = OpenHarmonyDocsRAGSkill(api_base_url="http://127.0.0.1:8000")
 
-# Ask a question
 result = await skill.ask_question("如何创建 UIAbility 组件？")
 print(skill.format_answer(result))
 
-# Search documents
-result = await skill.search_docs("ArkUI 组件", top_k=5)
-print(skill.format_search_results(result))
+chunks = await skill.search_docs("router.pushUrl 方法如何使用？", top_k=5)
+print(skill.format_search_results(chunks))
 ```
 
-## Helper Methods
+## 3. Environment Variable
 
-### format_answer
+如果不在构造函数里传 `api_base_url`，wrapper 会读取：
 
-Format answer result for display.
-
-```python
-formatted = skill.format_answer(result)
+```bash
+OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000
 ```
 
-### format_search_results
+## 4. Available Actions
 
-Format search results for display.
-
-```python
-formatted = skill.format_search_results(result)
-```
-
-## Configuration
-
-The skill connects to the RAG API at `http://localhost:8000` by default.
-
-To use a different URL:
-
-```python
-skill = OpenHarmonyDocsRAGSkill(api_base_url="http://your-api-url:8000")
-```
+- `ask_question`
+- `search_docs`
+- `sync_repository`
+- `get_stats`
 
 ## Notes
 
-- All requests include `X-Caller-Type: skill` header for tracking
-- Question answering has 60s timeout (for LLM generation)
-- Search has 30s timeout
-- Repository sync has 300s timeout (5 minutes)
-
-## Example Output
-
-### Question Answer
-
-```
-创建 UIAbility 组件的步骤如下：
-
-1. 在 DevEco Studio 中创建项目
-2. 定义 UIAbility 类
-3. 配置 module.json5
-4. 实现生命周期回调
-
-**参考文档：**
-1. [UIAbility 组件概述](https://gitee.com/openharmony/docs/blob/master/zh-cn/...)
-   路径: zh-cn/application-dev/application-models/uiability-overview.md
-2. [UIAbility 组件生命周期](https://gitee.com/openharmony/docs/blob/master/zh-cn/...)
-   路径: zh-cn/application-dev/application-models/uiability-lifecycle.md
-
-*意图: guide (置信度: 0.89)*
-```
-
-### Search Results
-
-```
-找到 5 个相关文档片段：
-
-**1. ArkUI 组件开发指南**
-路径: zh-cn/application-dev/ui/arkui-overview.md
-标题路径: 应用开发 > UI 开发 > ArkUI 概述
-相关度: 0.92
-内容: ArkUI 是一套构建分布式应用界面的声明式 UI 开发框架...
-
-**2. ArkUI 组件参考**
-路径: zh-cn/application-dev/reference/arkui-ts/ts-components-summary.md
-标题路径: 应用开发 > API 参考 > ArkUI 组件
-相关度: 0.88
-内容: ArkUI 提供了丰富的组件库，包括基础组件、容器组件...
-```
+- 所有请求都会带 `X-Caller-Type: skill`
+- `ask_question` 调用 `/query`
+- `search_docs` 调用 `/retrieve`
+- 具体技能说明和 `curl` 用法见 `SKILL.md`

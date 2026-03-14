@@ -27,7 +27,8 @@ class QueryPreprocessor:
 
         self.api_patterns = [
             r'api', r'接口', r'方法', r'函数', r'参数', r'返回值',
-            r'调用', r'使用.*api', r'interface', r'method', r'function'
+            r'调用', r'使用.*api', r'interface', r'method', r'function',
+            r'装饰器', r'属性'
         ]
 
         self.design_patterns = [
@@ -39,6 +40,15 @@ class QueryPreprocessor:
             r'是什么', r'什么是', r'概念', r'定义', r'介绍', r'概述',
             r'区别', r'对比',
             r'what is', r'concept', r'definition', r'overview', r'introduction'
+        ]
+
+        self.out_of_scope_patterns = [
+            r'android', r'python', r'kotlin', r'swift', r'objective-c',
+            r'react\s+native', r'flutter', r'ios'
+        ]
+        self.in_scope_patterns = [
+            r'openharmony', r'harmonyos', r'鸿蒙', r'arkui', r'arkts',
+            r'uiability', r'dataability', r'want', r'ohos'
         ]
 
     def preprocess(self, query: str) -> PreprocessedQuery:
@@ -86,6 +96,9 @@ class QueryPreprocessor:
         """
         query_lower = query.lower()
 
+        if self._looks_out_of_scope(query_lower):
+            return QueryIntent.GENERAL, 0.9
+
         # Check guide intent
         guide_score = sum(
             1 for pattern in self.guide_patterns
@@ -97,6 +110,11 @@ class QueryPreprocessor:
             1 for pattern in self.api_patterns
             if re.search(pattern, query_lower, re.IGNORECASE)
         )
+
+        if re.search(r'@[A-Za-z_]\w*', query):
+            api_score += 2
+        if re.search(r'\b[A-Za-z_]\w*\.[A-Za-z_]\w+\b', query):
+            api_score += 2
 
         # Check design spec intent
         design_score = sum(
@@ -123,13 +141,40 @@ class QueryPreprocessor:
         if max_score == 0:
             return QueryIntent.GENERAL, 0.5
 
-        # Get intent with highest score
-        intent = max(scores, key=scores.get)
+        # Prefer API usage for code-like queries when guide and api scores tie.
+        if (
+            guide_score > 0
+            and api_score > 0
+            and guide_score == api_score
+            and self._has_code_like_api_token(query)
+        ):
+            intent = QueryIntent.API_USAGE
+        else:
+            intent = max(scores, key=scores.get)
 
         # Calculate confidence (normalize to 0-1)
         confidence = min(max_score / 3.0, 1.0)
 
         return intent, confidence
+
+    def _looks_out_of_scope(self, query_lower: str) -> bool:
+        """Detect queries about ecosystems clearly outside OpenHarmony docs."""
+        has_out_of_scope_term = any(
+            re.search(pattern, query_lower, re.IGNORECASE)
+            for pattern in self.out_of_scope_patterns
+        )
+        has_in_scope_term = any(
+            re.search(pattern, query_lower, re.IGNORECASE)
+            for pattern in self.in_scope_patterns
+        )
+        return has_out_of_scope_term and not has_in_scope_term
+
+    def _has_code_like_api_token(self, query: str) -> bool:
+        """Detect explicit API symbols that should bias toward API intent."""
+        return bool(
+            re.search(r'@[A-Za-z_]\w*', query)
+            or re.search(r'\b[A-Za-z_]\w*\.[A-Za-z_]\w+\b', query)
+        )
 
     def _extract_filters(
         self, query: str, intent: QueryIntent
@@ -147,7 +192,6 @@ class QueryPreprocessor:
         # Set filters based on intent
         if intent == QueryIntent.GUIDE:
             filters.exclude_readme = True
-            filters.page_kind = PageKind.GUIDE
 
         elif intent == QueryIntent.API_USAGE:
             filters.page_kind = PageKind.REFERENCE

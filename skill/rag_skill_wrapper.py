@@ -1,26 +1,32 @@
-"""
-Skill Wrapper for OpenHarmony Docs RAG
+"""Distributable skill wrapper for the OpenHarmony Docs RAG API."""
 
-This wrapper exposes the RAG system as a Claude Code Skill.
-"""
+from __future__ import annotations
 
-import httpx
-import json
+import os
 from typing import Optional, Dict, Any
+
+from app.clients.rag_api_client import RAGAPIClient
 
 
 class OpenHarmonyDocsRAGSkill:
     """Skill wrapper for OpenHarmony documentation RAG system."""
 
-    def __init__(self, api_base_url: str = "http://localhost:8000"):
+    def __init__(
+        self,
+        api_base_url: str | None = None,
+        client: RAGAPIClient | None = None,
+    ):
         """
         Initialize the skill.
 
         Args:
             api_base_url: Base URL of the RAG API
         """
-        self.api_base_url = api_base_url
-        self.headers = {"X-Caller-Type": "skill"}
+        base_url = api_base_url or os.getenv(
+            "OPENHARMONY_RAG_API_BASE_URL",
+            "http://localhost:8000",
+        )
+        self.client = client or RAGAPIClient(base_url, caller_type="skill")
 
     async def search_docs(
         self,
@@ -39,19 +45,7 @@ class OpenHarmonyDocsRAGSkill:
         Returns:
             Search results with chunks
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_base_url}/retrieve",
-                json={
-                    "query": query,
-                    "top_k": top_k,
-                    "filters": filters or {}
-                },
-                headers=self.headers,
-                timeout=30.0
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self.client.retrieve(query, top_k=top_k, filters=filters)
 
     async def ask_question(
         self,
@@ -70,19 +64,7 @@ class OpenHarmonyDocsRAGSkill:
         Returns:
             Answer with citations
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_base_url}/query",
-                json={
-                    "query": query,
-                    "top_k": top_k,
-                    "filters": filters or {}
-                },
-                headers=self.headers,
-                timeout=60.0
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self.client.query(query, top_k=top_k, filters=filters)
 
     async def sync_repository(self) -> Dict[str, Any]:
         """
@@ -91,14 +73,7 @@ class OpenHarmonyDocsRAGSkill:
         Returns:
             Sync status
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.api_base_url}/sync-repo",
-                headers=self.headers,
-                timeout=300.0
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self.client.sync_repo()
 
     async def get_stats(self) -> Dict[str, Any]:
         """
@@ -107,14 +82,7 @@ class OpenHarmonyDocsRAGSkill:
         Returns:
             Statistics about indexed documents
         """
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self.api_base_url}/stats",
-                headers=self.headers,
-                timeout=10.0
-            )
-            response.raise_for_status()
-            return response.json()
+        return await self.client.stats()
 
     def format_answer(self, result: Dict[str, Any]) -> str:
         """

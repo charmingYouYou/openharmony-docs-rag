@@ -193,6 +193,7 @@ class QdrantClient:
     def _build_filter(self, filters: RetrievalFilters) -> Filter:
         """Build Qdrant filter from RetrievalFilters."""
         conditions = []
+        excluded_conditions = []
 
         if filters.top_dir:
             conditions.append(
@@ -227,14 +228,17 @@ class QdrantClient:
             )
 
         if filters.exclude_readme:
-            conditions.append(
+            excluded_conditions.append(
                 FieldCondition(
                     key="page_kind",
                     match=MatchValue(value="readme"),
                 )
             )
 
-        if not conditions:
+        if not conditions and not excluded_conditions:
             return None
 
-        return Filter(must=conditions)
+        return Filter(
+            must=conditions or None,
+            must_not=excluded_conditions or None,
+        )

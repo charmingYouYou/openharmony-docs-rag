@@ -9,8 +9,10 @@ from app.schemas import (
     PreprocessedQuery
 )
 from app.core.embedder import Embedder
+from app.core.reranker import Reranker
 from app.storage.qdrant_client import QdrantClient
 from app.utils.query_preprocessor import QueryPreprocessor
+from app.settings import settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -23,6 +25,7 @@ class HybridRetriever:
         self.embedder = Embedder()
         self.qdrant = QdrantClient()
         self.preprocessor = QueryPreprocessor()
+        self.reranker = self._build_reranker()
 
     def retrieve(
         self,
@@ -55,8 +58,11 @@ class HybridRetriever:
         # Generate query embedding
         query_embedding = self.embedder.embed_text(preprocessed_query.normalized_query)
 
-        # Search in Qdrant (retrieve more for reranking)
-        search_top_k = min(top_k * 3, 30)
+        # Search in Qdrant (retrieve more candidates when rerank is enabled)
+        if self.reranker:
+            search_top_k = max(top_k * 3, settings.rerank_top_k)
+        else:
+            search_top_k = min(top_k * 3, 30)
         results = self.qdrant.search(
             query_vector=query_embedding,
             top_k=search_top_k,
@@ -75,12 +81,52 @@ class HybridRetriever:
             for result in results
         ]
 
+        if self.reranker:
+            chunks = self.apply_rerank(
+                query=preprocessed_query.normalized_query,
+                chunks=chunks,
+            )
+
         # Apply intent-based boosting
         chunks = self.apply_intent_boost(chunks, preprocessed_query.intent)
 
         # Sort by boosted score and return top_k
         chunks.sort(key=lambda x: x.score, reverse=True)
         return chunks[:top_k]
+
+    def apply_rerank(self, query: str, chunks: List[RetrievedChunk]) -> List[RetrievedChunk]:
+        """Apply second-stage reranking on recalled chunks."""
+        if not self.reranker or not chunks:
+            return chunks
+
+        reranked = self.reranker.rerank(
+            query=query,
+            documents=[chunk.text for chunk in chunks],
+            top_n=min(settings.rerank_top_k, len(chunks)),
+        )
+
+        reordered = []
+        for item in reranked:
+            index = item.get("index")
+            if index is None or index < 0 or index >= len(chunks):
+                continue
+            chunk = chunks[index].model_copy(deep=True)
+            chunk.score = item.get("relevance_score", chunk.score)
+            reordered.append(chunk)
+
+        if not reordered:
+            return chunks
+
+        return reordered
+
+    def _build_reranker(self) -> Optional[Reranker]:
+        """Create reranker only when fully configured."""
+        if not settings.rerank_enabled:
+            return None
+        if not settings.rerank_is_configured:
+            logger.warning("Rerank is enabled but configuration is incomplete; skipping reranker")
+            return None
+        return Reranker()
 
     def apply_intent_boost(
         self, chunks: List[RetrievedChunk], intent: QueryIntent
