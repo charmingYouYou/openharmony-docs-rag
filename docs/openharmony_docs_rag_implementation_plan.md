@@ -27,8 +27,8 @@
 | API 框架 | FastAPI | 高性能异步框架 |
 | 向量数据库 | Qdrant | 开源向量数据库 |
 | 元数据存储 | SQLite | 轻量级关系数据库 |
-| Embedding | OpenAI text-embedding-3-small | 1536 维向量 |
-| LLM | OpenAI gpt-4o-mini | 成本优化的 GPT-4 |
+| Embedding | 阿里云百炼 text-embedding-v3 | 1024 维向量 |
+| LLM | Moonshot kimi-k2.5 | 成本优化的 GPT-4 |
 | Markdown 解析 | markdown-it-py | Python Markdown 解析器 |
 | 部署 | Docker Compose | 容器化部署 |
 
@@ -73,7 +73,7 @@
 │                  存储层                                       │
 │  ┌──────────────────────────┐  ┌──────────────────────────┐ │
 │  │  Qdrant (向量存储)        │  │  SQLite (元数据)         │ │
-│  │  - 1536 维向量            │  │  - 文档元数据            │ │
+│  │  - 1024 维向量            │  │  - 文档元数据            │ │
 │  │  - COSINE 距离            │  │  - 13 个字段             │ │
 │  │  - 30000+ chunks          │  │  - 6 个索引              │ │
 │  └──────────────────────────┘  └──────────────────────────┘ │
@@ -109,7 +109,7 @@ OpenHarmony Docs Repo (Gitee)
    Embedder 生成向量
          │
          ↓ (OpenAI API)
-   Embedding 向量 (1536 维)
+   Embedding 向量 (1024 维)
          │
          ├─→ Qdrant (向量 + payload)
          └─→ SQLite (元数据)
@@ -176,7 +176,7 @@ Hybrid Retriever
 - 可配置的 chunk 大小（目标 600 字符，重叠 100 字符）
 
 #### 3. 向量存储
-- Qdrant 向量数据库（1536 维，COSINE 距离）
+- Qdrant 向量数据库（1024 维，COSINE 距离）
 - SQLite 元数据存储（13 个字段，6 个索引）
 - 批量插入优化（batch_size=100）
 
@@ -205,7 +205,7 @@ Hybrid Retriever
 ### 核心功能
 
 #### 1. AnswerService
-- 基于检索结果生成答案（OpenAI gpt-4o-mini）
+- 基于检索结果生成答案（Moonshot kimi-k2.5）
 - 动态 Prompt 设计（根据意图类型调整）
 - 上下文构建（从检索的 chunks 构建）
 - 相关性检查（判断检索结果是否足够相关）
@@ -309,7 +309,7 @@ Hybrid Retriever
 - 意图增强提供额外的精准度
 
 ### 5. LLM 选择
-**决策**：OpenAI gpt-4o-mini
+**决策**：Moonshot kimi-k2.5
 
 **理由**：
 - 成本优化（相比 GPT-4）

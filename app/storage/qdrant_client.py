@@ -30,12 +30,12 @@ class QdrantClient:
         )
         self.collection_name = settings.qdrant_collection
 
-    def initialize_collection(self, vector_size: int = 1536):
+    def initialize_collection(self, vector_size: int):
         """
         Initialize Qdrant collection.
 
         Args:
-            vector_size: Dimension of embedding vectors (default 1536 for text-embedding-3-small)
+            vector_size: Dimension of embedding vectors
         """
         try:
             # Check if collection exists
@@ -59,6 +59,24 @@ class QdrantClient:
         except Exception as e:
             logger.error(f"Failed to initialize collection: {e}")
             raise
+
+    def get_vector_size(self) -> Optional[int]:
+        """Return the configured vector size for the collection, if it exists."""
+        try:
+            collections = self.client.get_collections().collections
+            collection_names = [collection.name for collection in collections]
+            if self.collection_name not in collection_names:
+                return None
+
+            collection = self.client.get_collection(collection_name=self.collection_name)
+            vectors_config = collection.config.params.vectors
+            if isinstance(vectors_config, dict):
+                first_vector = next(iter(vectors_config.values()), None)
+                return getattr(first_vector, "size", None)
+            return getattr(vectors_config, "size", None)
+        except Exception as e:
+            logger.warning(f"Failed to inspect collection vector size: {e}")
+            return None
 
     def insert_chunks(self, chunks: List[Chunk], embeddings: List[List[float]]):
         """
@@ -163,8 +181,11 @@ class QdrantClient:
     def count_points(self) -> int:
         """Count total points in collection."""
         try:
-            info = self.client.get_collection(collection_name=self.collection_name)
-            return info.points_count
+            result = self.client.count(
+                collection_name=self.collection_name,
+                exact=True,
+            )
+            return result.count
         except Exception as e:
             logger.error(f"Failed to count points: {e}")
             return 0

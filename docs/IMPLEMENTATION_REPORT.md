@@ -80,7 +80,7 @@ openharmony-docs-rag/
    - 设计规范：保持规范完整性
 
 3. **向量存储**
-   - Qdrant 向量数据库（1536 维，COSINE 距离）
+   - Qdrant 向量数据库（1024 维，COSINE 距离）
    - SQLite 元数据存储（13 个字段，6 个索引）
    - 批量插入优化（batch_size=100）
 
@@ -111,7 +111,7 @@ openharmony-docs-rag/
 ### 核心功能
 
 1. **AnswerService**
-   - 基于检索结果生成答案（OpenAI gpt-4o-mini）
+   - 基于检索结果生成答案（Moonshot kimi-k2.5）
    - 动态 Prompt 设计（根据意图类型调整）
    - 上下文构建（从检索的 chunks 构建）
    - 相关性检查（判断检索结果是否足够相关）
@@ -145,8 +145,8 @@ openharmony-docs-rag/
 | API 框架 | FastAPI | 高性能异步框架 |
 | 向量数据库 | Qdrant | 开源向量数据库 |
 | 元数据存储 | SQLite | 轻量级关系数据库 |
-| Embedding | OpenAI text-embedding-3-small | 1536 维向量 |
-| LLM | OpenAI gpt-4o-mini | 成本优化的 GPT-4 |
+| Embedding | 阿里云百炼 text-embedding-v3 | 1024 维向量 |
+| LLM | Moonshot kimi-k2.5 | 成本优化的 GPT-4 |
 | Markdown 解析 | markdown-it-py | Python Markdown 解析器 |
 | 部署 | Docker Compose | 容器化部署 |
 
@@ -190,7 +190,7 @@ openharmony-docs-rag/
 
 ### 5. LLM 选择
 
-**决策**：OpenAI gpt-4o-mini
+**决策**：Moonshot kimi-k2.5
 
 **理由**：
 - 成本优化（相比 GPT-4）

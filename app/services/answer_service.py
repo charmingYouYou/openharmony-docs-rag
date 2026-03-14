@@ -18,8 +18,11 @@ class AnswerService:
     """Generate answers using LLM based on retrieved context."""
 
     def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_chat_model
+        self.client = OpenAI(
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url
+        )
+        self.model = settings.llm_chat_model
 
     def generate_answer(
         self,

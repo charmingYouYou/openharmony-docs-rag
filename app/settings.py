@@ -23,10 +23,23 @@ class Settings(BaseSettings):
     # SQLite Configuration
     sqlite_db_path: str = "./storage/metadata.db"
 
-    # OpenAI Configuration
-    openai_api_key: str
-    openai_embedding_model: str = "text-embedding-3-small"
-    openai_chat_model: str = "gpt-4o-mini"
+    # LLM configuration
+    llm_api_key: str
+    llm_base_url: str
+    llm_chat_model: str
+
+    # Embedding configuration
+    embedding_api_key: str
+    embedding_base_url: str
+    embedding_model: str
+    embedding_document_input_type: str
+    embedding_query_input_type: str
+    embedding_document_prefix: str = ""
+    embedding_query_prefix: str = ""
+    embedding_batch_size: int = 128
+    embedding_max_retries: int = 5
+    embedding_retry_backoff_seconds: float = 20.0
+    embedding_inter_batch_delay_seconds: float = 0.0
 
     # Documentation Repository Configuration
     docs_repo_url: str = "https://gitee.com/openharmony/docs.git"

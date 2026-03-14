@@ -15,8 +15,8 @@
 - **API 框架**：FastAPI
 - **向量数据库**：Qdrant
 - **元数据存储**：SQLite
-- **Embedding**：OpenAI text-embedding-3-small
-- **LLM**：OpenAI gpt-4o-mini
+- **Embedding**：SiliconFlow `Qwen/Qwen3-Embedding-4B`
+- **LLM**：环境变量指定的 OpenAI 兼容聊天模型
 
 ## 项目结构
 
@@ -49,7 +49,7 @@ pip install -r requirements.txt
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，填入 OPENAI_API_KEY
+# 编辑 .env 文件，填入 LLM_* 和 EMBEDDING_* 配置
 ```
 
 ### 2. 同步文档
@@ -59,11 +59,22 @@ cp .env.example .env
 python scripts/sync_openharmony_docs.py
 ```
 
-### 3. 构建索引
+### 3. 配置模型环境变量
+
+Embedding 与对话模型已经完全拆分到环境变量中。当前默认示例使用 SiliconFlow 的 `Qwen/Qwen3-Embedding-4B`，并支持通过 `EMBEDDING_*_PREFIX` 从环境变量注入检索前缀；其中 `\n` 会在运行时转换成真实换行。
 
 ```bash
-# 解析文档并构建向量索引
+grep -E '^(LLM_|EMBEDDING_)' .env
+```
+
+### 4. 构建索引
+
+```bash
+# 默认增量构建：只为新增、变更、失败过的文档重建索引
 python scripts/build_index.py
+
+# 显式全量重建：清空 SQLite/Qdrant 后重新构建全部索引
+python scripts/build_index.py --full-rebuild
 ```
 
 这个过程会：
@@ -72,9 +83,13 @@ python scripts/build_index.py
 - 为每个块生成 embedding
 - 存储到 Qdrant 和 SQLite
 
-**预计耗时**：30-60 分钟（取决于网络和 API 速率）
+默认模式下，构建器会把每个文档的 `content_hash` 和当前索引签名持久化到 SQLite。未变更且已成功入库的文档会直接跳过，因此中断后重跑不会重复消耗已经完成文档的 embedding token。
 
-### 4. 启动服务
+失败文档会标记为 `failed` 并记录 `last_error`；下次执行 `python scripts/build_index.py` 时只会重试这些失败文档，而不是从头清空再来。
+
+**预计耗时**：取决于 embeddings 服务吞吐、文档规模以及本次实际变更的文档数量
+
+### 5. 启动服务
 
 #### 方式 1：本地运行
 
@@ -94,7 +109,7 @@ python app/main.py
 docker-compose up -d
 ```
 
-### 5. 测试 API
+### 6. 测试 API
 
 ```bash
 # 健康检查
@@ -117,7 +132,7 @@ curl -X POST http://localhost:8000/query \
   }'
 ```
 
-### 6. 运行评测
+### 7. 运行评测
 
 ```bash
 # 运行完整评测（需要先构建索引）
@@ -238,8 +253,8 @@ python data/eval/eval_dataset.py
   "supported_intents": ["guide", "api_usage", "design_spec", "concept", "general"],
   "supported_filters": ["top_dir", "kit", "subsystem", "page_kind", "exclude_readme"],
   "max_top_k": 50,
-  "embedding_model": "text-embedding-3-small",
-  "chat_model": "gpt-4o-mini"
+  "embedding_model": "Qwen/Qwen3-Embedding-4B",
+  "chat_model": "kimi-k2.5"
 }
 ```
 
@@ -320,8 +335,8 @@ python scripts/build_index.py 2>&1 | tee build.log
 ### API 调用失败
 
 ```bash
-# 检查 OpenAI API Key
-echo $OPENAI_API_KEY
+# 检查模型配置
+grep -E '^(LLM_|EMBEDDING_)' .env
 
 # 测试 embedding 生成
 python -c "from app.core.embedder import Embedder; e = Embedder(); print(len(e.embed_text('test')))"

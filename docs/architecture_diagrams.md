@@ -107,8 +107,8 @@ flowchart TD
     ChunkDesignLogic --> Embed
     ChunkGeneric --> Embed
 
-    Embed --> CallOpenAI[调用 OpenAI API<br/>text-embedding-3-small]
-    CallOpenAI --> GetVector[获取 1536 维向量]
+    Embed --> CallOpenAI[调用 OpenAI API<br/>text-embedding-v3]
+    CallOpenAI --> GetVector[获取 1024 维向量]
 
     GetVector --> SaveQdrant[保存到 Qdrant<br/>向量 + payload]
     GetVector --> SaveSQLite[保存到 SQLite<br/>文档元数据]
@@ -171,7 +171,7 @@ flowchart TD
     CheckRelevance -->|不相关| ReturnNoResult[返回友好提示<br/>未找到相关信息]
 
     BuildContext --> DynamicPrompt[动态 Prompt<br/>根据意图调整]
-    DynamicPrompt --> CallLLM[调用 LLM<br/>gpt-4o-mini]
+    DynamicPrompt --> CallLLM[调用 LLM<br/>kimi-k2.5]
     CallLLM --> GenAnswer[生成答案]
 
     GenAnswer --> BuildCitation[构建引用<br/>文档路径/片段]

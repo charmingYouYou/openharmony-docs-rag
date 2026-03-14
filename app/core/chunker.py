@@ -15,6 +15,8 @@ logger = setup_logger(__name__)
 class HeadingAwareChunker:
     """Chunker that respects document structure and heading hierarchy."""
 
+    version = "2026-03-14-table-split-v2"
+
     def __init__(
         self,
         target_size: int = None,
@@ -60,13 +62,13 @@ class HeadingAwareChunker:
             if len(section_content) > self.target_size * 2:
                 # If extremely long, split by code blocks
                 sub_chunks = self._split_long_section(section_content, heading_path)
-                for sub_idx, sub_content in enumerate(sub_chunks):
+                for sub_content in sub_chunks:
                     chunk = self._create_chunk(
-                        doc, sub_content, heading_path, idx * 100 + sub_idx
+                        doc, sub_content, heading_path, len(chunks)
                     )
                     chunks.append(chunk)
             else:
-                chunk = self._create_chunk(doc, section_content, heading_path, idx)
+                chunk = self._create_chunk(doc, section_content, heading_path, len(chunks))
                 chunks.append(chunk)
 
         return chunks
@@ -88,17 +90,17 @@ class HeadingAwareChunker:
             if self._contains_steps(section_content):
                 # Keep steps together
                 step_chunks = self._chunk_steps(section_content, heading_path)
-                for step_idx, step_content in enumerate(step_chunks):
+                for step_content in step_chunks:
                     chunk = self._create_chunk(
-                        doc, step_content, heading_path, idx * 100 + step_idx
+                        doc, step_content, heading_path, len(chunks)
                     )
                     chunks.append(chunk)
             else:
                 # Regular chunking with overlap
                 sub_chunks = self._chunk_with_overlap(section_content)
-                for sub_idx, sub_content in enumerate(sub_chunks):
+                for sub_content in sub_chunks:
                     chunk = self._create_chunk(
-                        doc, sub_content, heading_path, idx * 100 + sub_idx
+                        doc, sub_content, heading_path, len(chunks)
                     )
                     chunks.append(chunk)
 
@@ -120,13 +122,13 @@ class HeadingAwareChunker:
             # Keep design specs complete
             if len(section_content) > self.target_size * 1.5:
                 sub_chunks = self._chunk_with_overlap(section_content)
-                for sub_idx, sub_content in enumerate(sub_chunks):
+                for sub_content in sub_chunks:
                     chunk = self._create_chunk(
-                        doc, sub_content, heading_path, idx * 100 + sub_idx
+                        doc, sub_content, heading_path, len(chunks)
                     )
                     chunks.append(chunk)
             else:
-                chunk = self._create_chunk(doc, section_content, heading_path, idx)
+                chunk = self._create_chunk(doc, section_content, heading_path, len(chunks))
                 chunks.append(chunk)
 
         return chunks
@@ -144,7 +146,7 @@ class HeadingAwareChunker:
         sections = self._split_by_headings(content, min_level=2, max_level=2)
 
         for idx, (heading_path, section_content) in enumerate(sections):
-            chunk = self._create_chunk(doc, section_content, heading_path, idx)
+            chunk = self._create_chunk(doc, section_content, heading_path, len(chunks))
             chunks.append(chunk)
 
         return chunks
@@ -162,9 +164,9 @@ class HeadingAwareChunker:
 
         for idx, (heading_path, section_content) in enumerate(sections):
             sub_chunks = self._chunk_with_overlap(section_content)
-            for sub_idx, sub_content in enumerate(sub_chunks):
+            for sub_content in sub_chunks:
                 chunk = self._create_chunk(
-                    doc, sub_content, heading_path, idx * 100 + sub_idx
+                    doc, sub_content, heading_path, len(chunks)
                 )
                 chunks.append(chunk)
 
@@ -264,7 +266,7 @@ class HeadingAwareChunker:
     def _split_long_section(self, content: str, heading_path: str) -> List[str]:
         """Split extremely long sections by code blocks or paragraphs."""
         # Try to split by code blocks first
-        code_block_pattern = r'(```[\s\S]*?```)'
+        code_block_pattern = r'(```[\s\S]*?```)' 
         parts = re.split(code_block_pattern, content)
 
         chunks = []
@@ -281,7 +283,21 @@ class HeadingAwareChunker:
         if current_chunk:
             chunks.append(current_chunk)
 
-        return chunks
+        return self._rebalance_oversized_chunks(chunks)
+
+    def _rebalance_oversized_chunks(self, chunks: List[str]) -> List[str]:
+        """Apply a final fallback split when code-block chunking still leaves huge chunks."""
+        balanced_chunks = []
+        max_chunk_size = self.target_size * 8
+
+        for chunk in chunks:
+            if len(chunk) <= max_chunk_size:
+                balanced_chunks.append(chunk)
+                continue
+
+            balanced_chunks.extend(self._chunk_with_overlap(chunk))
+
+        return balanced_chunks
 
     def _create_chunk(
         self, doc: ParsedDocument, text: str, heading_path: str, chunk_index: int
@@ -312,6 +328,9 @@ class HeadingAwareChunker:
         )
 
     def _generate_chunk_id(self, doc_id: str, chunk_index: int) -> str:
-        """Generate unique chunk ID."""
+        """Generate unique chunk ID as UUID."""
+        import uuid
         combined = f"{doc_id}-{chunk_index}"
-        return hashlib.md5(combined.encode()).hexdigest()[:16]
+        # Generate UUID from MD5 hash to ensure consistency
+        hash_bytes = hashlib.md5(combined.encode()).digest()
+        return str(uuid.UUID(bytes=hash_bytes))

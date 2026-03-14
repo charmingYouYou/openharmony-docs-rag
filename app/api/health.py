@@ -59,6 +59,6 @@ async def get_capabilities():
         supported_intents=["guide", "api_usage", "design_spec", "concept", "general"],
         supported_filters=["top_dir", "kit", "subsystem", "page_kind", "exclude_readme"],
         max_top_k=50,
-        embedding_model=settings.openai_embedding_model,
-        chat_model=settings.openai_chat_model
+        embedding_model=settings.embedding_model,
+        chat_model=settings.llm_chat_model
     )

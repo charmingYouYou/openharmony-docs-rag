@@ -92,8 +92,8 @@ curl -X POST http://localhost:8000/retrieve \
 ```bash
 # OpenAI
 OPENAI_API_KEY=sk-xxx
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-OPENAI_CHAT_MODEL=gpt-4o-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-v3
+OPENAI_CHAT_MODEL=kimi-k2.5
 
 # Qdrant
 QDRANT_HOST=localhost

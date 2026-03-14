@@ -15,7 +15,7 @@
 **文件**：`app/services/answer_service.py`
 
 **核心功能**：
-- ✅ 基于检索结果生成答案（调用 OpenAI gpt-4o-mini）
+- ✅ 基于检索结果生成答案（调用 Moonshot kimi-k2.5）
 - ✅ 动态 Prompt 设计（根据意图类型调整）
 - ✅ 上下文构建（从检索的 chunks 构建）
 - ✅ 相关性检查（判断检索结果是否足够相关）
@@ -317,7 +317,7 @@ Kit: ArkUI
 
 ```python
 response = client.chat.completions.create(
-    model="gpt-4o-mini",
+    model="kimi-k2.5",
     messages=[
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt}

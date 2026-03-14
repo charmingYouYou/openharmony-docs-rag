@@ -93,7 +93,7 @@ openharmony-docs-rag/
 **功能**：
 - ✅ 单文本 embedding 生成
 - ✅ 批量 embedding 生成（batch_size=100）
-- ✅ 使用 OpenAI text-embedding-3-small 模型
+- ✅ 使用 阿里云百炼 text-embedding-v3 模型
 
 #### 2.4 Storage 层
 
@@ -105,7 +105,7 @@ openharmony-docs-rag/
 
 **Qdrant Client (`app/storage/qdrant_client.py`)**：
 - ✅ 向量存储和检索
-- ✅ Collection 初始化（1536 维向量，COSINE 距离）
+- ✅ Collection 初始化（1024 维向量，COSINE 距离）
 - ✅ 批量插入（batch_size=100）
 - ✅ 元数据过滤支持
 - ✅ 按文档 ID 删除
@@ -355,7 +355,7 @@ python tests/test_basic.py
 
 - **文档数**：约 5299 个
 - **Chunk 数**：约 30000+ 个
-- **向量维度**：1536（text-embedding-3-small）
+- **向量维度**：1536（text-embedding-v3）
 
 ### 检索性能
 

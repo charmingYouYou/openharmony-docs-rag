@@ -20,6 +20,8 @@ logger = setup_logger(__name__)
 class MarkdownParser:
     """Parser for OpenHarmony Markdown documentation."""
 
+    version = "2026-03-14-parser-v1"
+
     def __init__(self):
         self.md = MarkdownIt()
 

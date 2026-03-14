@@ -23,6 +23,11 @@ class DocumentModel:
         is_guide: bool = False,
         is_design_spec: bool = False,
         chunk_count: int = 0,
+        indexed_chunk_count: int = 0,
+        content_hash: Optional[str] = None,
+        index_signature: Optional[str] = None,
+        index_status: str = "pending",
+        last_error: Optional[str] = None,
         last_indexed_at: Optional[datetime] = None,
         created_at: Optional[datetime] = None
     ):
@@ -40,6 +45,11 @@ class DocumentModel:
         self.is_guide = is_guide
         self.is_design_spec = is_design_spec
         self.chunk_count = chunk_count
+        self.indexed_chunk_count = indexed_chunk_count
+        self.content_hash = content_hash
+        self.index_signature = index_signature
+        self.index_status = index_status
+        self.last_error = last_error
         self.last_indexed_at = last_indexed_at
         self.created_at = created_at or datetime.now()
 
@@ -60,6 +70,11 @@ class DocumentModel:
             "is_guide": self.is_guide,
             "is_design_spec": self.is_design_spec,
             "chunk_count": self.chunk_count,
+            "indexed_chunk_count": self.indexed_chunk_count,
+            "content_hash": self.content_hash,
+            "index_signature": self.index_signature,
+            "index_status": self.index_status,
+            "last_error": self.last_error,
             "last_indexed_at": self.last_indexed_at.isoformat() if self.last_indexed_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }

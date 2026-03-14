@@ -1,7 +1,10 @@
-"""Embedding generation module."""
+"""Synchronous embedding generation for configured /v1/embeddings APIs."""
 
+import time
+from urllib.parse import urlsplit, urlunsplit
 from typing import List
-from openai import OpenAI
+
+import requests
 
 from app.settings import settings
 from app.utils.logger import setup_logger
@@ -10,57 +13,99 @@ logger = setup_logger(__name__)
 
 
 class Embedder:
-    """Generate embeddings using OpenAI API."""
+    """Generate embeddings through the configured embeddings endpoint."""
 
     def __init__(self):
-        self.client = OpenAI(api_key=settings.openai_api_key)
-        self.model = settings.openai_embedding_model
+        self.api_key = settings.embedding_api_key
+        self.base_url = settings.embedding_base_url
+        self.model = settings.embedding_model
+        self.document_input_type = settings.embedding_document_input_type
+        self.query_input_type = settings.embedding_query_input_type
+        self.document_prefix = settings.embedding_document_prefix
+        self.query_prefix = settings.embedding_query_prefix
+        self.headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
 
     def embed_text(self, text: str) -> List[float]:
-        """
-        Generate embedding for a single text.
+        """Generate one query embedding."""
+        return self._embed(
+            [self._apply_prefix(text, self.query_prefix)],
+            input_type=self.query_input_type,
+        )[0]
 
-        Args:
-            text: Text to embed
+    def embed_batch(
+        self, texts: List[str], text_type: str | None = None
+    ) -> List[List[float]]:
+        """Generate embeddings for many texts."""
+        prepared_texts = [self._apply_prefix(text, self.document_prefix) for text in texts]
+        return self._embed(
+            prepared_texts,
+            input_type=text_type or self.document_input_type,
+        )
 
-        Returns:
-            Embedding vector
-        """
-        try:
-            response = self.client.embeddings.create(
-                model=self.model,
-                input=text
+    def _embed(self, texts: List[str], input_type: str) -> List[List[float]]:
+        if not texts:
+            return []
+
+        response = None
+        for attempt in range(1, settings.embedding_max_retries + 1):
+            response = requests.post(
+                self._embeddings_url(),
+                headers=self.headers,
+                json={
+                    "model": self.model,
+                    "input": texts,
+                    "input_type": input_type,
+                },
+                timeout=60,
             )
-            return response.data[0].embedding
-        except Exception as e:
-            logger.error(f"Failed to generate embedding: {e}")
-            raise
 
-    def embed_batch(self, texts: List[str], batch_size: int = 100) -> List[List[float]]:
-        """
-        Generate embeddings for multiple texts in batches.
+            if response.status_code != 429:
+                response.raise_for_status()
+                break
 
-        Args:
-            texts: List of texts to embed
-            batch_size: Number of texts per batch
+            if attempt == settings.embedding_max_retries:
+                response.raise_for_status()
 
-        Returns:
-            List of embedding vectors
-        """
-        embeddings = []
+            logger.warning(
+                "Embedding request hit rate limit on attempt "
+                f"{attempt}/{settings.embedding_max_retries}; sleeping "
+                f"{settings.embedding_retry_backoff_seconds}s before retry"
+            )
+            time.sleep(settings.embedding_retry_backoff_seconds)
 
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
-            try:
-                response = self.client.embeddings.create(
-                    model=self.model,
-                    input=batch
-                )
-                batch_embeddings = [item.embedding for item in response.data]
-                embeddings.extend(batch_embeddings)
-                logger.info(f"Generated embeddings for batch {i // batch_size + 1}")
-            except Exception as e:
-                logger.error(f"Failed to generate embeddings for batch {i // batch_size + 1}: {e}")
-                raise
+        payload = response.json()
+        data = payload.get("data", [])
+        embeddings = [item["embedding"] for item in data if "embedding" in item]
 
+        if len(embeddings) != len(texts):
+            raise ValueError(
+                f"Incomplete embedding response: expected {len(texts)} embeddings, got {len(embeddings)}"
+            )
+
+        logger.info(f"Generated {len(embeddings)} embeddings via configured API")
         return embeddings
+
+    def _embeddings_url(self) -> str:
+        """Normalize configured base URL to the official embeddings endpoint."""
+        parsed = urlsplit(self.base_url.rstrip("/"))
+        path = parsed.path.rstrip("/")
+
+        if path.endswith("/v1/embeddings"):
+            normalized_path = path
+        elif path.endswith("/v1"):
+            normalized_path = f"{path}/embeddings"
+        elif path:
+            normalized_path = f"{path}/v1/embeddings"
+        else:
+            normalized_path = "/v1/embeddings"
+
+        return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, "", ""))
+
+    def _apply_prefix(self, text: str, prefix: str) -> str:
+        """Prepend an optional configured prefix to the text payload."""
+        if not prefix:
+            return text
+        return f"{prefix.replace('\\n', '\n')}{text}"

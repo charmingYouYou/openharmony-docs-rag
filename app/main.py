@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api import query, health, management
+from app.settings import settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -66,7 +67,6 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    from app.settings import settings
 
     uvicorn.run(
         "app.main:app",

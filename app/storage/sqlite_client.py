@@ -43,10 +43,17 @@ class SQLiteClient:
                     is_guide BOOLEAN DEFAULT 0,
                     is_design_spec BOOLEAN DEFAULT 0,
                     chunk_count INTEGER DEFAULT 0,
+                    indexed_chunk_count INTEGER DEFAULT 0,
+                    content_hash TEXT,
+                    index_signature TEXT,
+                    index_status TEXT DEFAULT 'pending',
+                    last_error TEXT,
                     last_indexed_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            await self._migrate_schema(db)
 
             # Create indexes
             await db.execute("CREATE INDEX IF NOT EXISTS idx_documents_top_dir ON documents(top_dir)")
@@ -55,6 +62,7 @@ class SQLiteClient:
             await db.execute("CREATE INDEX IF NOT EXISTS idx_documents_is_api_reference ON documents(is_api_reference)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_documents_is_guide ON documents(is_guide)")
             await db.execute("CREATE INDEX IF NOT EXISTS idx_documents_is_design_spec ON documents(is_design_spec)")
+            await db.execute("CREATE INDEX IF NOT EXISTS idx_documents_index_status ON documents(index_status)")
 
             await db.commit()
             logger.info("Database initialized successfully")
@@ -67,14 +75,21 @@ class SQLiteClient:
                     doc_id, path, title, source_url, top_dir, sub_dir,
                     page_kind, kit, subsystem, owner,
                     is_api_reference, is_guide, is_design_spec,
-                    chunk_count, last_indexed_at, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    chunk_count, indexed_chunk_count, content_hash,
+                    index_signature, index_status, last_error,
+                    last_indexed_at, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 doc.doc_id, doc.path, doc.title, doc.source_url,
                 doc.top_dir, doc.sub_dir, doc.page_kind,
                 doc.kit, doc.subsystem, doc.owner,
                 doc.is_api_reference, doc.is_guide, doc.is_design_spec,
                 doc.chunk_count,
+                doc.indexed_chunk_count,
+                doc.content_hash,
+                doc.index_signature,
+                doc.index_status,
+                doc.last_error,
                 doc.last_indexed_at.isoformat() if doc.last_indexed_at else None,
                 doc.created_at.isoformat() if doc.created_at else None
             ))
@@ -137,6 +152,32 @@ class SQLiteClient:
             is_guide=bool(row["is_guide"]),
             is_design_spec=bool(row["is_design_spec"]),
             chunk_count=row["chunk_count"],
+            indexed_chunk_count=row["indexed_chunk_count"],
+            content_hash=row["content_hash"],
+            index_signature=row["index_signature"],
+            index_status=row["index_status"],
+            last_error=row["last_error"],
             last_indexed_at=datetime.fromisoformat(row["last_indexed_at"]) if row["last_indexed_at"] else None,
             created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
         )
+
+    async def _migrate_schema(self, db: aiosqlite.Connection):
+        """Add missing columns to existing databases."""
+        async with db.execute("PRAGMA table_info(documents)") as cursor:
+            rows = await cursor.fetchall()
+
+        existing_columns = {row[1] for row in rows}
+        required_columns = {
+            "indexed_chunk_count": "INTEGER DEFAULT 0",
+            "content_hash": "TEXT",
+            "index_signature": "TEXT",
+            "index_status": "TEXT DEFAULT 'pending'",
+            "last_error": "TEXT",
+        }
+
+        for column_name, column_type in required_columns.items():
+            if column_name in existing_columns:
+                continue
+            await db.execute(
+                f"ALTER TABLE documents ADD COLUMN {column_name} {column_type}"
+            )
