@@ -58,3 +58,32 @@ def test_install_script_uses_pull_and_not_local_build():
 
     assert "compose pull" in script
     assert "up -d --build" not in script
+
+
+def test_release_workflow_runs_on_main_push_and_can_write_releases():
+    """The repository should publish tags and GitHub releases from a dedicated release workflow."""
+    repo_root = Path(__file__).parent.parent
+    workflow_path = repo_root / ".github" / "workflows" / "release.yml"
+
+    payload = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    assert payload["name"] == "release"
+    assert payload["on"]["push"]["branches"] == ["main"]
+    assert payload["jobs"]["release"]["permissions"]["contents"] == "write"
+
+
+def test_semantic_release_config_generates_v_tags_and_changelog():
+    """Semantic release should manage version tags, changelog updates, and GitHub releases."""
+    repo_root = Path(__file__).parent.parent
+    config_path = repo_root / ".releaserc.json"
+
+    payload = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    plugins = payload["plugins"]
+
+    assert payload["tagFormat"] == "v${version}"
+    assert any(
+        plugin[0] == "@semantic-release/changelog"
+        and plugin[1]["changelogFile"] == "CHANGELOG.md"
+        for plugin in plugins
+    )
+    assert any(plugin == "@semantic-release/github" for plugin in plugins)

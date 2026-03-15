@@ -211,7 +211,18 @@ curl -I http://localhost:8000/
 
 ## 镜像发布（维护者）
 
-仓库内置了基于 GitHub Actions 的镜像发布流程，定义在 `.github/workflows/publish-image.yml`。默认会把应用镜像推送到：
+仓库内置了两条 GitHub Actions 发布链路：
+
+- `.github/workflows/release.yml`
+  - 在推送 `main` 后自动运行 `semantic-release`
+  - 基于 Conventional Commits 自动更新 `CHANGELOG.md`
+  - 自动创建 Git tag（格式 `vX.Y.Z`）
+  - 自动创建 GitHub Release
+- `.github/workflows/publish-image.yml`
+  - 在推送 `main` 时发布 `latest` 镜像
+  - 在推送 `v*` tag 时发布对应版本镜像
+
+默认镜像会推送到：
 
 ```bash
 ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
@@ -222,6 +233,21 @@ ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
 - `docker-compose.yml` 中的 `OPENHARMONY_RAG_IMAGE` 默认值
 - `.env.example` 中的镜像示例值
 - `.github/workflows/publish-image.yml` 中的 `IMAGE_NAME`
+
+如果你希望自动 release 生效，提交信息需要遵循 Conventional Commits，例如：
+
+```text
+feat: add incremental build controls
+fix: handle paused build status in web console
+feat!: change deployment image naming convention
+```
+
+推送顺序会是：
+
+1. 推送到 `main`
+2. `release.yml` 自动生成 `CHANGELOG.md`、tag 和 GitHub Release
+3. 新建的 `v*` tag 继续触发 `publish-image.yml`
+4. GHCR 同时拥有 `latest` 和版本号镜像
 
 ## 开发者本地运行
 
