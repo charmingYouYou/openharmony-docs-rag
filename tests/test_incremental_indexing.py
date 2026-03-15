@@ -466,3 +466,102 @@ async def test_full_rebuild_clears_storage_before_processing(monkeypatch):
 
     assert builder.sqlite.clear_all_calls == 1
     assert builder.qdrant.cleared == 1
+
+
+@pytest.mark.asyncio
+async def test_incremental_build_can_pause_safely_between_batches(monkeypatch):
+    builder = build_index_module.IndexBuilder.__new__(build_index_module.IndexBuilder)
+
+    parsed_doc = make_parsed_doc("zh-cn/application-dev/doc.md", content="# Doc\n\npause me")
+    chunks = make_chunks(parsed_doc.doc_id)
+
+    class FakeParser:
+        def parse_file(self, file_path, base_path):
+            return parsed_doc
+
+    class FakeChunker:
+        version = "chunker-v1"
+
+        def chunk_document(self, doc):
+            return chunks
+
+    class FakeEmbedder:
+        def __init__(self):
+            self.calls = []
+
+        def embed_batch(self, texts):
+            self.calls.append(list(texts))
+            return [[0.1] for _ in texts]
+
+    class FakeQdrant:
+        def __init__(self):
+            self.inserted = []
+
+        def clear_collection(self):
+            return None
+
+        def delete_by_doc_id(self, doc_id):
+            return None
+
+        def initialize_collection(self, vector_size):
+            return None
+
+        def insert_chunks(self, chunks, embeddings):
+            self.inserted.append([chunk.chunk_id for chunk in chunks])
+
+        def count_points(self):
+            return sum(len(batch) for batch in self.inserted)
+
+    class FakeSQLite:
+        def __init__(self):
+            self.inserted = []
+
+        async def initialize(self):
+            return None
+
+        async def clear_all(self):
+            return None
+
+        async def get_all_documents(self):
+            return []
+
+        async def insert_document(self, doc):
+            self.inserted.append(doc)
+
+        async def delete_document(self, doc_id):
+            return None
+
+        async def count_documents(self):
+            return len(self.inserted)
+
+    builder.parser = FakeParser()
+    builder.chunker = FakeChunker()
+    builder.embedder = FakeEmbedder()
+    builder.qdrant = FakeQdrant()
+    builder.sqlite = FakeSQLite()
+    builder.base_path = Path("/tmp/docs")
+    builder._collect_markdown_files = lambda: [builder.base_path / parsed_doc.path]
+
+    monkeypatch.setattr(
+        build_index_module.IndexBuilder,
+        "_content_hash",
+        lambda self, content: "content-hash",
+    )
+    monkeypatch.setattr(
+        build_index_module.IndexBuilder,
+        "_index_signature",
+        lambda self: "signature-hash",
+    )
+    monkeypatch.setattr(build_index_module.settings, "embedding_batch_size", 1)
+
+    pause_checks = iter([False, True])
+    summary = await builder.build(
+        full_rebuild=False,
+        should_pause=lambda: next(pause_checks, True),
+    )
+
+    assert summary["status"] == "paused"
+    assert summary["processed_docs"] == 0
+    assert builder.embedder.calls == [["chunk one"]]
+    assert builder.qdrant.inserted == [["doc-1-chunk-1"]]
+    assert builder.sqlite.inserted[0].index_status == "indexing"

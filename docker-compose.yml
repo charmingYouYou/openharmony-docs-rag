@@ -1,9 +1,9 @@
-version: '3.8'
-
+# Docker Compose stack for the OpenHarmony Docs RAG delivery deployment.
 services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: openharmony-qdrant
+    restart: unless-stopped
     ports:
       - "6333:6333"
       - "6334:6334"
@@ -12,13 +12,13 @@ services:
     environment:
       - QDRANT__SERVICE__GRPC_PORT=6334
 
-  api:
-    build: .
-    container_name: openharmony-rag-api
+  app:
+    image: ${OPENHARMONY_RAG_IMAGE:-ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest}
+    container_name: openharmony-rag-app
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
-      - ./app:/app/app
       - ./data:/app/data
       - ./storage:/app/storage
     environment:
@@ -28,7 +28,16 @@ services:
       - .env
     depends_on:
       - qdrant
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
 volumes:
   qdrant_storage:

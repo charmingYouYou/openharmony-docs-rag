@@ -1,6 +1,6 @@
 # OpenHarmony Docs RAG - MCP Server
 
-真正可运行的 MCP server 入口是 `rag_mcp.stdio_server`，它通过 stdio 暴露工具，并转发到本地 RAG API。
+真正可运行的 MCP server 入口是 `rag_mcp.stdio_server`，它通过 stdio 暴露工具，并转发到已部署的 RAG API。
 
 ## Available Tools
 
@@ -15,13 +15,13 @@
 
 ```bash
 cd openharmony-docs-rag
-./venv/bin/python app/main.py
+./deploy/deploy.sh
 ```
 
 ### 2. Run the MCP server
 
 ```bash
-OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000 \
+OPENHARMONY_RAG_API_BASE_URL=http://<部署地址>:8000 \
 ./venv/bin/python -m rag_mcp.stdio_server
 ```
 
@@ -37,7 +37,7 @@ OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000 \
       "args": ["-m", "rag_mcp.stdio_server"],
       "cwd": "/absolute/path/to/openharmony-docs-rag",
       "env": {
-        "OPENHARMONY_RAG_API_BASE_URL": "http://127.0.0.1:8000"
+        "OPENHARMONY_RAG_API_BASE_URL": "http://<部署地址>:8000"
       }
     }
   }
@@ -51,7 +51,7 @@ OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000 \
 ```python
 from rag_mcp.http_adapter import OpenHarmonyDocsRAGMCP
 
-mcp = OpenHarmonyDocsRAGMCP(api_base_url="http://127.0.0.1:8000")
+mcp = OpenHarmonyDocsRAGMCP(api_base_url="http://<部署地址>:8000")
 tools = mcp.get_tools()
 result = await mcp.call_tool("oh_docs_rag_query", {"query": "如何创建 UIAbility 组件？"})
 ```

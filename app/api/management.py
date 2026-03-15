@@ -117,6 +117,7 @@ async def list_documents(
     top_dir: str = None,
     kit: str = None,
     page_kind: str = None,
+    index_status: str = None,
     limit: int = 100,
     offset: int = 0
 ):
@@ -127,6 +128,7 @@ async def list_documents(
     - top_dir: Filter by top directory (e.g., "application-dev")
     - kit: Filter by Kit (e.g., "ArkUI")
     - page_kind: Filter by page kind (e.g., "guide")
+    - index_status: Filter by index status (e.g., "ready")
     - limit: Maximum number of results (default 100)
     - offset: Offset for pagination (default 0)
     """
@@ -148,6 +150,10 @@ async def list_documents(
         if page_kind:
             query += " AND page_kind = ?"
             params.append(page_kind)
+
+        if index_status:
+            query += " AND index_status = ?"
+            params.append(index_status)
 
         query += " ORDER BY path LIMIT ? OFFSET ?"
         params.extend([limit, offset])
@@ -175,6 +181,10 @@ async def list_documents(
             if page_kind:
                 count_query += " AND page_kind = ?"
                 count_params.append(page_kind)
+
+            if index_status:
+                count_query += " AND index_status = ?"
+                count_params.append(index_status)
 
             async with db.execute(count_query, count_params) as cursor:
                 row = await cursor.fetchone()

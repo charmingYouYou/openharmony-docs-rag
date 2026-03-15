@@ -9,7 +9,7 @@ import sys
 import time
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, List
+from typing import Callable, Dict, List, Optional
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -39,7 +39,12 @@ class IndexBuilder:
         self.sqlite = SQLiteClient()
         self.base_path = Path(settings.docs_local_path)
 
-    async def build(self, full_rebuild: bool = False):
+    async def build(
+        self,
+        full_rebuild: bool = False,
+        progress_callback: Optional[Callable[[Dict[str, object]], None]] = None,
+        should_pause: Optional[Callable[[], bool]] = None,
+    ):
         """Build the complete index."""
         logger.info("Starting index build process")
 
@@ -56,6 +61,13 @@ class IndexBuilder:
         logger.info("Collecting markdown files...")
         md_files = self._collect_markdown_files()
         logger.info(f"Found {len(md_files)} markdown files to process")
+        self._report_progress(
+            progress_callback,
+            {
+                "type": "collection_scanned",
+                "total_docs": len(md_files),
+            },
+        )
 
         existing_docs_by_path: Dict[str, DocumentModel] = {}
         if not full_rebuild:
@@ -71,11 +83,24 @@ class IndexBuilder:
         total_chunks = 0
         embedded_batches = 0
         collection_initialized = False
+        current_path = ""
 
         for idx, md_file in enumerate(md_files, 1):
             parsed_doc = None
             doc_model = None
             try:
+                if should_pause and should_pause():
+                    return self._build_summary(
+                        status="paused",
+                        indexed_docs=indexed_docs,
+                        reindexed_docs=reindexed_docs,
+                        skipped_docs=skipped_docs,
+                        failed_docs=failed_docs,
+                        total_chunks=total_chunks,
+                        total_docs=len(md_files),
+                        current_path=current_path,
+                    )
+
                 logger.info(f"Processing [{idx}/{len(md_files)}]: {md_file.name}")
 
                 # Parse document
@@ -84,6 +109,21 @@ class IndexBuilder:
                     logger.warning(f"Failed to parse {md_file}")
                     failed_docs += 1
                     continue
+
+                current_path = parsed_doc.path
+                self._report_progress(
+                    progress_callback,
+                    {
+                        "type": "document_started",
+                        "current_index": idx,
+                        "processed_docs": indexed_docs
+                        + reindexed_docs
+                        + skipped_docs
+                        + failed_docs,
+                        "total_docs": len(md_files),
+                        "path": parsed_doc.path,
+                    },
+                )
 
                 # Chunk document
                 chunks = self.chunker.chunk_document(parsed_doc)
@@ -131,12 +171,25 @@ class IndexBuilder:
                         indexed_docs += 1
                     continue
 
-                collection_initialized, embedded_batches = await self._index_document(
+                collection_initialized, embedded_batches, paused = await self._index_document(
                     doc_model,
                     chunks,
                     collection_initialized,
                     embedded_batches,
+                    should_pause=should_pause,
                 )
+                if paused:
+                    return self._build_summary(
+                        status="paused",
+                        indexed_docs=indexed_docs,
+                        reindexed_docs=reindexed_docs,
+                        skipped_docs=skipped_docs,
+                        failed_docs=failed_docs,
+                        total_chunks=total_chunks,
+                        total_docs=len(md_files),
+                        current_path=current_path,
+                    )
+
                 total_chunks += len(chunks)
                 existing_docs_by_path[parsed_doc.path] = doc_model
                 if existing_doc:
@@ -173,6 +226,16 @@ class IndexBuilder:
         logger.info(f"Qdrant points: {self.qdrant.count_points()}")
         logger.info(f"SQLite documents: {await self.sqlite.count_documents()}")
         logger.info("=" * 60)
+        return self._build_summary(
+            status="completed",
+            indexed_docs=indexed_docs,
+            reindexed_docs=reindexed_docs,
+            skipped_docs=skipped_docs,
+            failed_docs=failed_docs,
+            total_chunks=total_chunks,
+            total_docs=len(md_files),
+            current_path=current_path,
+        )
 
     def _collect_markdown_files(self) -> List[Path]:
         """Collect all markdown files from included directories."""
@@ -197,7 +260,8 @@ class IndexBuilder:
         chunks: List[Chunk],
         collection_initialized: bool,
         embedded_batches: int,
-    ) -> tuple[bool, int]:
+        should_pause: Optional[Callable[[], bool]] = None,
+    ) -> tuple[bool, int, bool]:
         """Index one document end-to-end so failures do not poison later documents."""
         pending_doc_models = {doc_model.doc_id: doc_model}
         remaining_chunks_by_doc = {doc_model.doc_id: len(chunks)}
@@ -223,8 +287,11 @@ class IndexBuilder:
                 collection_initialized,
             )
             embedded_batches += 1
+            has_more_batches = start + len(batch) < len(chunks)
+            if has_more_batches and should_pause and should_pause():
+                return collection_initialized, embedded_batches, True
 
-        return collection_initialized, embedded_batches
+        return collection_initialized, embedded_batches, False
 
     async def _cleanup_stale_documents(
         self,
@@ -391,6 +458,40 @@ class IndexBuilder:
         """Generate Gitee source URL for document."""
         base_url = "https://gitee.com/openharmony/docs/blob/master"
         return f"{base_url}/{rel_path}"
+
+    def _report_progress(
+        self,
+        progress_callback: Optional[Callable[[Dict[str, object]], None]],
+        payload: Dict[str, object],
+    ):
+        """Emit one structured progress payload when a callback is provided."""
+        if progress_callback is None:
+            return
+        progress_callback(payload)
+
+    def _build_summary(
+        self,
+        status: str,
+        indexed_docs: int,
+        reindexed_docs: int,
+        skipped_docs: int,
+        failed_docs: int,
+        total_chunks: int,
+        total_docs: int,
+        current_path: str,
+    ) -> Dict[str, object]:
+        """Return a structured summary for CLI callers and web orchestration."""
+        return {
+            "status": status,
+            "processed_docs": indexed_docs + reindexed_docs + skipped_docs + failed_docs,
+            "indexed_docs": indexed_docs,
+            "reindexed_docs": reindexed_docs,
+            "skipped_docs": skipped_docs,
+            "failed_docs": failed_docs,
+            "total_chunks": total_chunks,
+            "total_docs": total_docs,
+            "current_path": current_path,
+        }
 
 
 def parse_args():

@@ -36,32 +36,37 @@ openharmony-docs-rag/
 └── tests/                 # 测试
 ```
 
-## 快速开始
+## 对外交付部署（推荐）
 
-### 1. 环境准备
+### 1. 部署前准备
+
+- 安装 Docker Engine 和 Docker Compose
+- 准备可访问外部模型服务的网络环境
+- 预留端口：`8000`（Web + API）、`6333/6334`（Qdrant）
+- 预留持久化目录：`./data`、`./storage`
+- 默认交付镜像：`ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest`
+
+### 2. 配置环境变量
+
+如果你已经拿到了仓库，直接在根目录执行：
 
 ```bash
-# 克隆项目
 cd openharmony-docs-rag
-
-# 安装依赖
-pip install -r requirements.txt
-
-# 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，只填核心模型配置即可
 ```
 
-### 2. 同步文档
+如果你只想按 `docker-compose.yml` 直接安装，最小只需要这两个文件：
+
+- `docker-compose.yml`
+- `.env.example`
+
+然后执行：
 
 ```bash
-# 克隆 OpenHarmony 文档仓库
-python scripts/sync_openharmony_docs.py
+cp .env.example .env
 ```
 
-### 3. 配置模型环境变量
-
-现在默认只需要填这 9 个核心变量：
+默认至少需要填写这些核心变量：
 
 - `LLM_API_KEY`
 - `LLM_BASE_URL`
@@ -77,64 +82,186 @@ python scripts/sync_openharmony_docs.py
 
 - `RERANK_API_KEY` 和 `RERANK_BASE_URL` 默认复用 `EMBEDDING_*`
 - `EMBEDDING_DOCUMENT_INPUT_TYPE` / `EMBEDDING_QUERY_INPUT_TYPE` 默认分别是 `document` / `query`
-- `EMBEDDING_QUERY_PREFIX` 仍然保留在 env 中，便于按模型调整检索 instruction
-- 其余 batch、重试、chunk 大小等都放到“可选高级配置”，不填就走默认值
-
-当前默认示例使用 SiliconFlow 的 `Qwen/Qwen3-Embedding-4B` 和 `Qwen/Qwen3-Reranker-4B`；其中 `EMBEDDING_QUERY_PREFIX` 支持从环境变量注入检索前缀，`\n` 会在运行时转换成真实换行。
+- `EMBEDDING_QUERY_PREFIX` 保留在 env 中，便于按模型调整检索 instruction
+- 其余 batch、重试、chunk 大小等都属于可选高级配置
 
 ```bash
-grep -E '^(LLM_|EMBEDDING_|RERANK_)' .env
+grep -E '^(API_|LLM_|EMBEDDING_|RERANK_|DOCS_)' .env
 ```
 
-### 4. 构建索引
+如果你需要覆盖默认镜像地址，可以在 `.env` 里追加：
 
 ```bash
-# 默认增量构建：只为新增、变更、失败过的文档重建索引
+OPENHARMONY_RAG_IMAGE=ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
+```
+
+### 3. 一键部署
+
+推荐直接按 Compose 安装：
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+如果你已经拿到了完整仓库，也可以使用仓库内置脚本：
+
+```bash
+./deploy/deploy.sh
+```
+
+它会执行：
+
+- 检查 `.env` 是否存在
+- 执行 `docker compose pull`
+- 执行 `docker compose up -d`
+- 等待 `http://127.0.0.1:${API_PORT}/health` 返回成功
+- 输出 Web / API 入口和常用运维命令
+
+### 4. 启动后访问方式
+
+- Web 控制台：`http://localhost:8000/`
+- 健康检查：`http://localhost:8000/health`
+- OpenAPI 文档：`http://localhost:8000/docs`
+- 关键接口：
+  - `POST /query`
+  - `POST /retrieve`
+  - `GET /stats`
+  - `GET /web/services`
+
+### 5. 常用运维命令
+
+```bash
+# 拉取最新镜像
+docker compose pull
+
+# 启动或更新
+docker compose up -d
+
+# 查看状态
+docker compose ps
+
+# 查看应用日志
+docker compose logs -f app
+
+# 查看 Qdrant 日志
+docker compose logs -f qdrant
+
+# 停止服务
+docker compose down
+```
+
+### 6. 数据目录说明
+
+- `./data/raw/openharmony-docs`：同步下来的 OpenHarmony 文档仓库
+- `./storage/metadata.db`：SQLite 元数据
+- `qdrant_storage` volume：Qdrant 向量数据
+
+默认部署不会自动触发建库。你可以在 Web 控制台中执行“同步文档并增量构建”，也可以手工执行：
+
+```bash
+# 默认增量构建
 python scripts/build_index.py
 
-# 显式全量重建：清空 SQLite/Qdrant 后重新构建全部索引
+# 显式全量重建
 python scripts/build_index.py --full-rebuild
 ```
 
-这个过程会：
-- 解析约 5299 个 Markdown 文件（application-dev + design 目录）
-- 生成约 30000+ 个文档块
-- 为每个块生成 embedding
-- 存储到 Qdrant 和 SQLite
+### 7. skill / MCP 接入
 
-默认模式下，构建器会把每个文档的 `content_hash` 和当前索引签名持久化到 SQLite。未变更且已成功入库的文档会直接跳过，因此中断后重跑不会重复消耗已经完成文档的 embedding token。
-
-失败文档会标记为 `failed` 并记录 `last_error`；下次执行 `python scripts/build_index.py` 时只会重试这些失败文档，而不是从头清空再来。
-
-**预计耗时**：取决于 embeddings 服务吞吐、文档规模以及本次实际变更的文档数量
-
-### 5. 启动服务
-
-#### 方式 1：本地运行
+部署完成后，将 `OPENHARMONY_RAG_API_BASE_URL` 指向你的交付地址，例如：
 
 ```bash
-# 启动 Qdrant（需要 Docker）
+OPENHARMONY_RAG_API_BASE_URL=http://<部署地址>:8000
+```
+
+- Skill 分发文件：`skill/SKILL.md`、`skill/rag_skill_wrapper.py`
+- MCP 分发文件：`mcp/server.example.json`、`rag_mcp.stdio_server`
+
+### 8. 故障排查
+
+#### 端口被占用
+
+```bash
+lsof -i :8000
+lsof -i :6333
+```
+
+#### `.env` 缺失或配置不完整
+
+```bash
+cp .env.example .env
+grep -E '^(LLM_|EMBEDDING_|RERANK_)' .env
+```
+
+#### Qdrant 未就绪
+
+```bash
+docker compose logs -f qdrant
+curl http://localhost:6333/collections
+```
+
+#### Web 页面空白或资源未加载
+
+```bash
+docker compose logs -f app
+curl http://localhost:8000/health
+curl -I http://localhost:8000/
+```
+
+## 镜像发布（维护者）
+
+仓库内置了基于 GitHub Actions 的镜像发布流程，定义在 `.github/workflows/publish-image.yml`。默认会把应用镜像推送到：
+
+```bash
+ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
+```
+
+如果你使用不同的镜像仓库，请同步调整：
+
+- `docker-compose.yml` 中的 `OPENHARMONY_RAG_IMAGE` 默认值
+- `.env.example` 中的镜像示例值
+- `.github/workflows/publish-image.yml` 中的 `IMAGE_NAME`
+
+## 开发者本地运行
+
+### 1. 安装依赖
+
+```bash
+cd openharmony-docs-rag
+pip install -r requirements.txt
+cd web && npm install && cd ..
+```
+
+### 2. 同步文档
+
+```bash
+python scripts/sync_openharmony_docs.py
+```
+
+### 3. 本地启动
+
+```bash
+# 启动 Qdrant
 docker run -p 6333:6333 -p 6334:6334 \
-    -v $(pwd)/qdrant_storage:/qdrant/storage \
-    qdrant/qdrant
+  -v "$(pwd)/qdrant_storage:/qdrant/storage" \
+  qdrant/qdrant
 
-# 启动 API 服务
+# 启动 API
 python app/main.py
+
+# 启动前端开发服务器
+cd web
+npm run dev
 ```
 
-#### 方式 2：Docker Compose
-
-```bash
-docker-compose up -d
-```
-
-### 6. 测试 API
+### 4. 本地验证
 
 ```bash
 # 健康检查
 curl http://localhost:8000/health
 
-# 检索测试（仅检索，不生成答案）
+# 检索测试
 curl -X POST http://localhost:8000/retrieve \
   -H "Content-Type: application/json" \
   -d '{
@@ -142,7 +269,7 @@ curl -X POST http://localhost:8000/retrieve \
     "top_k": 5
   }'
 
-# 问答测试（完整 RAG，生成答案）
+# 问答测试
 curl -X POST http://localhost:8000/query \
   -H "Content-Type: application/json" \
   -d '{
@@ -151,13 +278,10 @@ curl -X POST http://localhost:8000/query \
   }'
 ```
 
-### 7. 运行评测
+### 5. 运行评测
 
 ```bash
-# 运行完整评测（需要先构建索引）
 python scripts/eval.py
-
-# 查看评测数据集统计
 python data/eval/eval_dataset.py
 ```
 
@@ -418,7 +542,7 @@ Python wrapper 示例：
 ```python
 from skill.rag_skill_wrapper import OpenHarmonyDocsRAGSkill
 
-skill = OpenHarmonyDocsRAGSkill(api_base_url="http://127.0.0.1:8000")
+skill = OpenHarmonyDocsRAGSkill(api_base_url="http://<部署地址>:8000")
 
 # 问答
 result = await skill.ask_question("如何创建 UIAbility 组件？")
@@ -442,7 +566,7 @@ result = await skill.get_stats()
 真正可运行的 MCP Server 入口是 `rag_mcp.stdio_server`：
 
 ```bash
-OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000 \
+OPENHARMONY_RAG_API_BASE_URL=http://<部署地址>:8000 \
 ./venv/bin/python -m rag_mcp.stdio_server
 ```
 
@@ -457,7 +581,7 @@ OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000 \
 ```python
 from rag_mcp.http_adapter import OpenHarmonyDocsRAGMCP
 
-mcp = OpenHarmonyDocsRAGMCP(api_base_url="http://127.0.0.1:8000")
+mcp = OpenHarmonyDocsRAGMCP(api_base_url="http://<部署地址>:8000")
 tools = mcp.get_tools()
 result = await mcp.call_tool("oh_docs_rag_query", {"query": "如何创建 UIAbility 组件？"})
 ```

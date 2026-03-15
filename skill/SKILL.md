@@ -10,7 +10,7 @@ Use the local OpenHarmony documentation RAG API instead of answering from memory
 
 ## Configuration
 
-- Default API base URL: `http://localhost:8000`
+- Recommended deployment API base URL: `http://<部署地址>:8000`
 - Override with environment variable: `OPENHARMONY_RAG_API_BASE_URL`
 
 ## Primary Actions

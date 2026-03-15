@@ -1,0 +1,23 @@
+# Docker build context exclusions for the distributable deployment image.
+.git
+.superpowers
+.idea
+.vscode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+venv
+env
+.env
+data/raw
+qdrant_storage
+storage/*.db
+storage/*.db-journal
+release
+web/node_modules
+web/.git
+web/dist
+tests
+docs
+logs

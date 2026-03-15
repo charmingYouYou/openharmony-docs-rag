@@ -23,6 +23,37 @@ class QueryIntent(str, Enum):
     GENERAL = "general"
 
 
+class BuildMode(str, Enum):
+    """Build workflow modes exposed to the web console."""
+
+    SYNC_INCREMENTAL = "sync_incremental"
+    INCREMENTAL = "incremental"
+    FULL_REBUILD = "full_rebuild"
+
+
+class BuildStatus(str, Enum):
+    """Runtime status for a web-triggered build task."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    PAUSING = "pausing"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class BuildStage(str, Enum):
+    """Stage labels used by the web build console."""
+
+    IDLE = "idle"
+    SYNCING_REPO = "syncing_repo"
+    COLLECTING_DOCS = "collecting_docs"
+    INDEXING = "indexing"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class DocumentMetadata(BaseModel):
     """Metadata extracted from document."""
     kit: Optional[str] = None
@@ -137,3 +168,60 @@ class CapabilitiesResponse(BaseModel):
     max_top_k: int
     embedding_model: str
     chat_model: str
+
+
+class BuildRequest(BaseModel):
+    """Request to start a web-managed build run."""
+
+    mode: BuildMode = BuildMode.SYNC_INCREMENTAL
+
+
+class BuildRunSummary(BaseModel):
+    """Status summary for one build run."""
+
+    id: str
+    mode: BuildMode
+    status: BuildStatus
+    stage: BuildStage
+    started_at: datetime
+    updated_at: datetime
+    processed_docs: int = 0
+    total_docs: int = 0
+    indexed_docs: int = 0
+    reindexed_docs: int = 0
+    skipped_docs: int = 0
+    failed_docs: int = 0
+    current_path: str = ""
+    can_pause: bool = False
+    can_resume: bool = False
+
+
+class BuildEvent(BaseModel):
+    """Structured event emitted over SSE for the build console."""
+
+    event: str
+    data: Dict[str, Any]
+
+
+class EnvPayload(BaseModel):
+    """Raw env file payload and validation warnings."""
+
+    raw: str
+    warnings: List[str]
+    last_modified: Optional[str] = None
+
+
+class EnvUpdateRequest(BaseModel):
+    """Request to save raw .env text."""
+
+    raw: str
+
+
+class ServiceStatus(BaseModel):
+    """One runtime service shown in the web console."""
+
+    name: str
+    status: str
+    host: str
+    port: int
+    details: str

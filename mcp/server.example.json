@@ -5,7 +5,7 @@
       "args": ["-m", "rag_mcp.stdio_server"],
       "cwd": "/absolute/path/to/openharmony-docs-rag",
       "env": {
-        "OPENHARMONY_RAG_API_BASE_URL": "http://127.0.0.1:8000"
+        "OPENHARMONY_RAG_API_BASE_URL": "http://<部署地址>:8000"
       }
     }
   }

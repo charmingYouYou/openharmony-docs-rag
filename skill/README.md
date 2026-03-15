@@ -9,10 +9,10 @@
 
 如果你要把它作为 Codex / Claude 风格的本地 skill 使用，直接分发 [skill/SKILL.md](/Volumes/PM9A1/code/codex/openharmony-docs-rag/skill/SKILL.md) 即可。
 
-技能默认访问：
+部署后请将技能访问地址改成你的交付入口：
 
 ```bash
-OPENHARMONY_RAG_API_BASE_URL=http://localhost:8000
+OPENHARMONY_RAG_API_BASE_URL=http://<部署地址>:8000
 ```
 
 ## 2. Python Wrapper
@@ -20,7 +20,7 @@ OPENHARMONY_RAG_API_BASE_URL=http://localhost:8000
 ```python
 from skill.rag_skill_wrapper import OpenHarmonyDocsRAGSkill
 
-skill = OpenHarmonyDocsRAGSkill(api_base_url="http://127.0.0.1:8000")
+skill = OpenHarmonyDocsRAGSkill(api_base_url="http://<部署地址>:8000")
 
 result = await skill.ask_question("如何创建 UIAbility 组件？")
 print(skill.format_answer(result))
@@ -34,7 +34,7 @@ print(skill.format_search_results(chunks))
 如果不在构造函数里传 `api_base_url`，wrapper 会读取：
 
 ```bash
-OPENHARMONY_RAG_API_BASE_URL=http://127.0.0.1:8000
+OPENHARMONY_RAG_API_BASE_URL=http://<部署地址>:8000
 ```
 
 ## 4. Available Actions
