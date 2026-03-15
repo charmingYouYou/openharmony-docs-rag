@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/charmingYouYou/openharmony-docs-rag/compare/v1.1.0...v1.1.1) (2026-03-15)
+
+### Bug Fixes
+
+* **builds:** stop replaying paused build logs ([d35b1e6](https://github.com/charmingYouYou/openharmony-docs-rag/commit/d35b1e6eb40a8c6d27b78e31b20343c9133d2dba))
+
 ## [1.1.0](https://github.com/charmingYouYou/openharmony-docs-rag/compare/v1.0.2...v1.1.0) (2026-03-15)
 
 ### Features
