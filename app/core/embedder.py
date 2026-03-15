@@ -108,4 +108,5 @@ class Embedder:
         """Prepend an optional configured prefix to the text payload."""
         if not prefix:
             return text
-        return f"{prefix.replace('\\n', '\n')}{text}"
+        normalized_prefix = prefix.replace("\\n", "\n")
+        return f"{normalized_prefix}{text}"

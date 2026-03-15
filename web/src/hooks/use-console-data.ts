@@ -1,3 +1,6 @@
+/**
+ * Hook that coordinates build runs, runtime services, env editing, and index data for the console.
+ */
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import {
@@ -32,6 +35,9 @@ import type {
 
 const TERMINAL_STATUSES = new Set(['paused', 'completed', 'failed'])
 
+/**
+ * Aggregate the data-fetching and mutation actions required by the deployment console.
+ */
 export function useConsoleData() {
   const [runs, setRuns] = useState<BuildRunSummary[]>([])
   const [activeRun, setActiveRun] = useState<BuildRunSummary | null>(null)
@@ -139,7 +145,7 @@ export function useConsoleData() {
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        env: error instanceof Error ? error.message : '读取 .env 失败',
+        env: error instanceof Error ? error.message : '读取 deploy/app.env 失败',
       }))
     } finally {
       setLoading((current) => ({ ...current, env: false }))
@@ -210,7 +216,7 @@ export function useConsoleData() {
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        env: error instanceof Error ? error.message : '保存 .env 失败',
+        env: error instanceof Error ? error.message : '保存 deploy/app.env 失败',
       }))
       throw error
     } finally {

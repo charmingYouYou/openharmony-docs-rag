@@ -1,4 +1,4 @@
-"""Read and write the repository .env file for the local web console."""
+"""Read and write the tracked Docker deployment env file for the web console."""
 
 from __future__ import annotations
 
@@ -18,11 +18,13 @@ CORE_ENV_KEYS = [
     "DOCS_LOCAL_PATH",
 ]
 
+DEFAULT_DEPLOY_ENV_PATH = Path("deploy/app.env")
+
 
 class EnvFileService:
-    """Manage the raw env file used by the Python API."""
+    """Manage the tracked deployment env file used by Docker and the Python API."""
 
-    def __init__(self, env_path: str | Path = ".env"):
+    def __init__(self, env_path: str | Path = DEFAULT_DEPLOY_ENV_PATH):
         self.env_path = Path(env_path)
 
     def read_env(self) -> EnvPayload:
@@ -36,15 +38,19 @@ class EnvFileService:
                 self.env_path.stat().st_mtime
             ).isoformat(timespec="seconds")
 
-        return EnvPayload(
-            raw=raw,
-            warnings=self._collect_warnings(raw),
-            last_modified=last_modified,
-        )
+        warnings = self._collect_warnings(raw)
+        if not self.env_path.exists():
+            warnings.insert(
+                0,
+                f"未找到部署配置文件 {self.env_path.as_posix()}，请先恢复该文件后再保存。",
+            )
+
+        return EnvPayload(raw=raw, warnings=warnings, last_modified=last_modified)
 
     def write_env(self, raw: str) -> EnvPayload:
         """Validate and save raw env text atomically."""
         self._validate_raw_env(raw)
+        self.env_path.parent.mkdir(parents=True, exist_ok=True)
         self.env_path.write_text(raw, encoding="utf-8")
         return self.read_env()
 

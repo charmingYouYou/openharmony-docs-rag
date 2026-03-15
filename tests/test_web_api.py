@@ -10,6 +10,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.main import app
+from app.services.env_file_service import EnvFileService
 
 
 class FakeBuildManager:
@@ -99,6 +100,7 @@ class FakeEnvService:
 
     def __init__(self):
         self.saved = []
+        self.env_path = Path("deploy/app.env")
 
     def read_env(self):
         return {
@@ -139,12 +141,13 @@ class FakeServiceStatusService:
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
     from app.api.web import builds, config, services
 
     monkeypatch.setattr(builds, "build_manager", FakeBuildManager())
     monkeypatch.setattr(config, "env_service", FakeEnvService())
     monkeypatch.setattr(services, "service_status_service", FakeServiceStatusService())
+    monkeypatch.setattr("app.main.settings.sqlite_db_path", str(tmp_path / "storage" / "metadata.db"))
     return TestClient(app)
 
 
@@ -194,6 +197,21 @@ def test_env_routes_read_and_write_raw_env_text(client):
     assert response.status_code == 200
     assert response.json()["raw"] == "API_PORT=9000\n"
     assert response.json()["warnings"] == []
+
+
+def test_env_routes_use_deploy_app_env_service_target(client):
+    from app.api.web import config
+
+    assert config.env_service.env_path == Path("deploy/app.env")
+
+
+def test_env_file_service_returns_actionable_warning_when_deploy_env_is_missing(tmp_path):
+    service = EnvFileService(tmp_path / "deploy" / "app.env")
+
+    payload = service.read_env()
+
+    assert payload.raw == ""
+    assert any("deploy/app.env" in warning for warning in payload.warnings)
 
 
 def test_services_route_lists_runtime_status(client):

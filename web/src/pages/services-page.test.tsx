@@ -1,5 +1,5 @@
 /**
- * Regression tests for light-theme readability in the services and `.env` guidance area.
+ * Regression tests for light-theme readability and deploy-time env guidance.
  */
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -47,5 +47,23 @@ describe('ServicesPage', () => {
     expect(warningListClasses).toContain('text-amber-800/90')
     expect(warningListClasses).toContain('dark:text-amber-50/85')
     expect(warningListClasses).not.toContain('text-amber-50/85')
+  })
+
+  it('展示 deploy/app.env 作为当前 Docker 部署配置文件', () => {
+    render(
+      <ServicesPage
+        services={services}
+        capabilities={null}
+        envPayload={envPayload}
+        onRefreshServices={async () => undefined}
+        onSaveEnv={async () => undefined}
+      />,
+    )
+
+    expect(screen.getAllByText('deploy/app.env 配置')).toHaveLength(2)
+    expect(
+      screen.getAllByText(/当前编辑的是 Docker 部署运行时配置文件 deploy\/app\.env/),
+    ).toHaveLength(2)
+    expect(screen.getAllByRole('button', { name: '保存 deploy/app.env' })).toHaveLength(2)
   })
 })

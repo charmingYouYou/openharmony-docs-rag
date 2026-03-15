@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Install the OpenHarmony Docs RAG stack by running `docker compose pull` and `docker compose up -d`.
+# Install the OpenHarmony Docs RAG stack through Docker Compose using deploy/app.env.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-ENV_FILE="${ROOT_DIR}/.env"
-EXAMPLE_ENV_FILE="${ROOT_DIR}/.env.example"
+APP_ENV_FILE="${ROOT_DIR}/deploy/app.env"
 
 # Choose a Compose command that works on the current host.
 resolve_compose_cmd() {
@@ -25,12 +24,12 @@ resolve_compose_cmd() {
 read_env_value() {
   local key="$1"
   local fallback="$2"
-  if [[ ! -f "${ENV_FILE}" ]]; then
+  if [[ ! -f "${APP_ENV_FILE}" ]]; then
     printf '%s\n' "${fallback}"
     return
   fi
   local value
-  value="$(grep -E "^${key}=" "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
+  value="$(grep -E "^${key}=" "${APP_ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
   if [[ -n "${value}" ]]; then
     printf '%s\n' "${value}"
     return
@@ -64,9 +63,8 @@ main() {
   local compose_cmd
   compose_cmd="$(resolve_compose_cmd)"
 
-  if [[ ! -f "${ENV_FILE}" ]]; then
-    cp "${EXAMPLE_ENV_FILE}" "${ENV_FILE}"
-    printf '已生成 %s，请先填写模型密钥后重新执行。\n' "${ENV_FILE}" >&2
+  if [[ ! -f "${APP_ENV_FILE}" ]]; then
+    printf '未找到 %s，请先恢复仓库内置部署配置后再执行。\n' "${APP_ENV_FILE}" >&2
     exit 1
   fi
 
@@ -74,15 +72,15 @@ main() {
   api_port="$(read_env_value "API_PORT" "8000")"
 
   cd "${ROOT_DIR}"
-  ${compose_cmd} pull
-  ${compose_cmd} up -d
+  ${compose_cmd} --env-file "${APP_ENV_FILE}" pull
+  ${compose_cmd} --env-file "${APP_ENV_FILE}" up -d
   wait_for_api "${api_port}"
 
   printf '\n部署完成。\n'
   printf 'Web / API 入口: http://localhost:%s\n' "${api_port}"
   printf '健康检查: http://localhost:%s/health\n' "${api_port}"
-  printf '停止服务: %s down\n' "${compose_cmd}"
-  printf '查看日志: %s logs -f app\n' "${compose_cmd}"
+  printf '停止服务: %s --env-file %s down\n' "${compose_cmd}" "${APP_ENV_FILE}"
+  printf '查看日志: %s --env-file %s logs -f app\n' "${compose_cmd}" "${APP_ENV_FILE}"
 }
 
 main "$@"

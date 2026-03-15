@@ -10,6 +10,33 @@ import yaml
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.main import create_app
+from app.settings import Settings
+
+
+def test_settings_read_deploy_app_env_and_ignore_compose_only_keys(tmp_path):
+    """Deployment settings should accept compose-only keys while reading the tracked app env file."""
+    env_path = tmp_path / "deploy" / "app.env"
+    env_path.parent.mkdir(parents=True)
+    env_path.write_text(
+        "\n".join(
+            [
+                "LLM_API_KEY=sk-chat",
+                "LLM_BASE_URL=https://llm.example.com/v1",
+                "LLM_CHAT_MODEL=qwen-max",
+                "EMBEDDING_API_KEY=sk-embed",
+                "EMBEDDING_BASE_URL=https://embed.example.com/v1",
+                "EMBEDDING_MODEL=Qwen/Qwen3-Embedding-4B",
+                "OPENHARMONY_RAG_IMAGE=ghcr.io/example/app:latest",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    settings = Settings(_env_file=env_path)
+
+    assert settings.llm_chat_model == "qwen-max"
+    assert settings.embedding_model == "Qwen/Qwen3-Embedding-4B"
 
 
 def test_serves_built_web_assets_and_spa_routes(tmp_path):
@@ -37,6 +64,19 @@ def test_serves_built_web_assets_and_spa_routes(tmp_path):
     assert "console.log('ok')" in asset_response.text
 
 
+def test_startup_initializes_sqlite_metadata_file(tmp_path, monkeypatch):
+    """Fresh installs should create the SQLite metadata database during app startup."""
+    db_path = tmp_path / "storage" / "metadata.db"
+
+    monkeypatch.setattr("app.main.settings.sqlite_db_path", str(db_path))
+
+    with TestClient(create_app()) as client:
+        response = client.get("/docs")
+
+    assert response.status_code == 200
+    assert db_path.exists()
+
+
 def test_delivery_compose_pulls_prebuilt_image():
     """The delivery compose stack should install from a registry image instead of local source builds."""
     repo_root = Path(__file__).parent.parent
@@ -47,6 +87,8 @@ def test_delivery_compose_pulls_prebuilt_image():
 
     assert "image" in app_service
     assert "build" not in app_service
+    assert app_service["env_file"] == ["./deploy/app.env"]
+    assert "./deploy/app.env:/app/deploy/app.env" in app_service["volumes"]
 
 
 def test_install_script_uses_pull_and_not_local_build():
@@ -56,8 +98,10 @@ def test_install_script_uses_pull_and_not_local_build():
 
     script = script_path.read_text(encoding="utf-8")
 
-    assert "compose pull" in script
+    assert " pull" in script
     assert "up -d --build" not in script
+    assert "--env-file" in script
+    assert "deploy/app.env" in script
 
 
 def test_release_workflow_runs_on_main_push_and_can_write_releases():
@@ -101,3 +145,17 @@ def test_publish_image_workflow_builds_frontend_before_container_push():
     assert "Set up Node.js" in step_names
     assert "Install frontend dependencies" in step_names
     assert "Build frontend bundle" in step_names
+
+
+def test_publish_image_workflow_builds_multi_arch_images():
+    """Published install images should include both amd64 and arm64 manifests."""
+    repo_root = Path(__file__).parent.parent
+    workflow_path = repo_root / ".github" / "workflows" / "publish-image.yml"
+
+    payload = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    steps = payload["jobs"]["publish"]["steps"]
+    qemu_step = next(step for step in steps if step["name"] == "Set up QEMU")
+    build_step = next(step for step in steps if step["name"] == "Build and push image")
+
+    assert qemu_step["uses"] == "docker/setup-qemu-action@v3"
+    assert build_step["with"]["platforms"] == "linux/amd64,linux/arm64"

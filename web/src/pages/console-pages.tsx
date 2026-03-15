@@ -297,7 +297,7 @@ export function WorkspacePage({
             />
             <QuickLinkCard
               title="Skill / MCP 指南"
-              description="查看接入代码片段和本地运行方式。"
+              description="查看接入代码片段和 Docker 部署后的连接方式。"
               to="/integrations"
             />
           </CardContent>
@@ -763,7 +763,7 @@ function CitationCard({ citation }: { citation: Citation }) {
 }
 
 /**
- * Renders service health, capability summary, and raw `.env` editing with validation guidance.
+ * Renders service health, capability summary, and deploy/app.env editing with validation guidance.
  */
 export function ServicesPage({
   services,
@@ -842,10 +842,10 @@ export function ServicesPage({
         </Card>
       </section>
 
-      <Card className="border-border/70 bg-card/80">
-        <CardHeader>
-          <CardTitle>.env 配置</CardTitle>
-          <CardDescription>原始文本编辑器模式，保留字段原样但提供中文引导。</CardDescription>
+        <Card className="border-border/70 bg-card/80">
+          <CardHeader>
+          <CardTitle>deploy/app.env 配置</CardTitle>
+          <CardDescription>当前编辑的是 Docker 部署运行时配置文件 deploy/app.env。</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
           <div className="space-y-3">
@@ -872,6 +872,9 @@ export function ServicesPage({
             </div>
           </div>
           <div className="space-y-3">
+            <p className="text-sm leading-6 text-muted-foreground">
+              保存后重新执行 <code>docker compose --env-file deploy/app.env up -d</code>，即可让新配置生效。
+            </p>
             <Textarea
               className="min-h-[420px] rounded-3xl font-mono text-xs"
               value={draft}
@@ -889,7 +892,7 @@ export function ServicesPage({
                 }}
               >
                 <Save className="size-4" />
-                保存 .env
+                保存 deploy/app.env
               </Button>
               <Badge className="rounded-full border border-border/70 bg-background/55 text-muted-foreground">
                 最近修改：{envPayload.last_modified ? formatDate(envPayload.last_modified) : '未记录'}
@@ -935,7 +938,7 @@ export function IntegrationsPage() {
               <AccordionContent className="pb-4">
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li>• 确认 API 服务已启动并监听 8000 端口。</li>
-                  <li>• 构建索引前，先补齐 .env 中的 LLM/Embedding 配置。</li>
+                  <li>• 构建索引前，先补齐 deploy/app.env 中的 LLM/Embedding 配置。</li>
                   <li>• 如果使用 MCP，避免在 stdio 服务中向 stdout 打日志。</li>
                   <li>• 如果恢复增量构建，已就绪文档会被跳过，只重试未完成内容。</li>
                 </ul>

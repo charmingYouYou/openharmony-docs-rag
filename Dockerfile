@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy runtime sources required by the API, skill, MCP adapter, and deployment scripts.
 COPY app ./app
+COPY deploy ./deploy
 COPY rag_mcp ./rag_mcp
 COPY scripts ./scripts
 COPY skill ./skill
@@ -37,4 +38,4 @@ COPY --from=web-build /web/dist ./web/dist
 EXPOSE 8000
 
 # Run the combined API and built web console.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn app.main:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-8000}"]

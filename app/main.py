@@ -10,6 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api import query, health, management
 from app.api.web import router as web_router
 from app.settings import settings
+from app.storage.sqlite_client import SQLiteClient
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -99,7 +100,9 @@ def create_app(web_dist_dir: Path | None = None) -> FastAPI:
 
     @app.on_event("startup")
     async def startup_event():
-        """Log API startup for local runs and deployed instances."""
+        """Initialize runtime dependencies before serving API traffic."""
+        sqlite = SQLiteClient()
+        await sqlite.initialize()
         logger.info("Starting OpenHarmony Docs RAG API")
 
     @app.on_event("shutdown")

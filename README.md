@@ -48,22 +48,11 @@ openharmony-docs-rag/
 
 ### 2. 配置环境变量
 
-如果你已经拿到了仓库，直接在根目录执行：
+部署默认配置文件是仓库内置的 `deploy/app.env`。首次安装前只需要编辑这一份文件：
 
 ```bash
 cd openharmony-docs-rag
-cp .env.example .env
-```
-
-如果你只想按 `docker-compose.yml` 直接安装，最小只需要这两个文件：
-
-- `docker-compose.yml`
-- `.env.example`
-
-然后执行：
-
-```bash
-cp .env.example .env
+nano deploy/app.env
 ```
 
 默认至少需要填写这些核心变量：
@@ -86,25 +75,26 @@ cp .env.example .env
 - 其余 batch、重试、chunk 大小等都属于可选高级配置
 
 ```bash
-grep -E '^(API_|LLM_|EMBEDDING_|RERANK_|DOCS_)' .env
+grep -E '^(API_|LLM_|EMBEDDING_|RERANK_|DOCS_)' deploy/app.env
 ```
 
-如果你需要覆盖默认镜像地址，可以在 `.env` 里追加：
+如果你需要覆盖默认镜像地址，请通过 shell 环境变量传入，不要写进 `deploy/app.env`：
 
 ```bash
-OPENHARMONY_RAG_IMAGE=ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
+OPENHARMONY_RAG_IMAGE=ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest \
+docker compose --env-file deploy/app.env up -d
 ```
 
 ### 3. 一键部署
 
-推荐直接按 Compose 安装：
+推荐直接按 Compose 安装，并显式指定 `deploy/app.env`：
 
 ```bash
-docker compose pull
-docker compose up -d
+docker compose --env-file deploy/app.env pull
+docker compose --env-file deploy/app.env up -d
 ```
 
-如果你已经拿到了完整仓库，也可以使用仓库内置脚本：
+如果你希望使用仓库内置包装脚本，也可以执行：
 
 ```bash
 ./deploy/deploy.sh
@@ -112,9 +102,9 @@ docker compose up -d
 
 它会执行：
 
-- 检查 `.env` 是否存在
-- 执行 `docker compose pull`
-- 执行 `docker compose up -d`
+ - 检查 `deploy/app.env` 是否存在
+- 执行 `docker compose --env-file deploy/app.env pull`
+- 执行 `docker compose --env-file deploy/app.env up -d`
 - 等待 `http://127.0.0.1:${API_PORT}/health` 返回成功
 - 输出 Web / API 入口和常用运维命令
 
@@ -133,22 +123,22 @@ docker compose up -d
 
 ```bash
 # 拉取最新镜像
-docker compose pull
+docker compose --env-file deploy/app.env pull
 
 # 启动或更新
-docker compose up -d
+docker compose --env-file deploy/app.env up -d
 
 # 查看状态
-docker compose ps
+docker compose --env-file deploy/app.env ps
 
 # 查看应用日志
-docker compose logs -f app
+docker compose --env-file deploy/app.env logs -f app
 
 # 查看 Qdrant 日志
-docker compose logs -f qdrant
+docker compose --env-file deploy/app.env logs -f qdrant
 
 # 停止服务
-docker compose down
+docker compose --env-file deploy/app.env down
 ```
 
 ### 6. 数据目录说明
@@ -157,17 +147,26 @@ docker compose down
 - `./storage/metadata.db`：SQLite 元数据
 - `qdrant_storage` volume：Qdrant 向量数据
 
-默认部署不会自动触发建库。你可以在 Web 控制台中执行“同步文档并增量构建”，也可以手工执行：
+默认部署不会自动触发建库。你可以在 Web 控制台中执行“同步文档并增量构建”，也可以在容器内手工执行：
 
 ```bash
 # 默认增量构建
-python scripts/build_index.py
+docker compose --env-file deploy/app.env exec app python scripts/build_index.py
 
 # 显式全量重建
-python scripts/build_index.py --full-rebuild
+docker compose --env-file deploy/app.env exec app python scripts/build_index.py --full-rebuild
 ```
 
-### 7. skill / MCP 接入
+### 7. Web 中修改 env 配置
+
+- Web 控制台的“服务状态”页会直接编辑 `deploy/app.env`
+- 保存后，需要重新执行一次：
+
+```bash
+docker compose --env-file deploy/app.env up -d
+```
+
+### 8. skill / MCP 接入
 
 部署完成后，将 `OPENHARMONY_RAG_API_BASE_URL` 指向你的交付地址，例如：
 
@@ -178,7 +177,7 @@ OPENHARMONY_RAG_API_BASE_URL=http://<部署地址>:8000
 - Skill 分发文件：`skill/SKILL.md`、`skill/rag_skill_wrapper.py`
 - MCP 分发文件：`mcp/server.example.json`、`rag_mcp.stdio_server`
 
-### 8. 故障排查
+### 9. 故障排查
 
 #### 端口被占用
 
@@ -187,27 +186,35 @@ lsof -i :8000
 lsof -i :6333
 ```
 
-#### `.env` 缺失或配置不完整
+#### `deploy/app.env` 缺失或配置不完整
 
 ```bash
-cp .env.example .env
-grep -E '^(LLM_|EMBEDDING_|RERANK_)' .env
+ls -l deploy/app.env
+grep -E '^(LLM_|EMBEDDING_|RERANK_)' deploy/app.env
 ```
 
 #### Qdrant 未就绪
 
 ```bash
-docker compose logs -f qdrant
+docker compose --env-file deploy/app.env logs -f qdrant
 curl http://localhost:6333/collections
 ```
 
 #### Web 页面空白或资源未加载
 
 ```bash
-docker compose logs -f app
+docker compose --env-file deploy/app.env logs -f app
 curl http://localhost:8000/health
 curl -I http://localhost:8000/
 ```
+
+#### Apple Silicon 拉不到镜像
+
+```bash
+docker buildx imagetools inspect ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
+```
+
+输出中应同时包含 `linux/amd64` 和 `linux/arm64`。
 
 ## 镜像发布（维护者）
 
@@ -231,7 +238,7 @@ ghcr.io/charmingyouyou/openharmony-docs-rag-app:latest
 如果你使用不同的镜像仓库，请同步调整：
 
 - `docker-compose.yml` 中的 `OPENHARMONY_RAG_IMAGE` 默认值
-- `.env.example` 中的镜像示例值
+- `README.md` 中的镜像示例值
 - `.github/workflows/publish-image.yml` 中的 `IMAGE_NAME`
 
 如果你希望自动 release 生效，提交信息需要遵循 Conventional Commits，例如：
@@ -248,68 +255,6 @@ feat!: change deployment image naming convention
 2. `release.yml` 自动生成 `CHANGELOG.md`、tag 和 GitHub Release
 3. 新建的 `v*` tag 继续触发 `publish-image.yml`
 4. GHCR 同时拥有 `latest` 和版本号镜像
-
-## 开发者本地运行
-
-### 1. 安装依赖
-
-```bash
-cd openharmony-docs-rag
-pip install -r requirements.txt
-cd web && npm install && cd ..
-```
-
-### 2. 同步文档
-
-```bash
-python scripts/sync_openharmony_docs.py
-```
-
-### 3. 本地启动
-
-```bash
-# 启动 Qdrant
-docker run -p 6333:6333 -p 6334:6334 \
-  -v "$(pwd)/qdrant_storage:/qdrant/storage" \
-  qdrant/qdrant
-
-# 启动 API
-python app/main.py
-
-# 启动前端开发服务器
-cd web
-npm run dev
-```
-
-### 4. 本地验证
-
-```bash
-# 健康检查
-curl http://localhost:8000/health
-
-# 检索测试
-curl -X POST http://localhost:8000/retrieve \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "如何创建 UIAbility 组件？",
-    "top_k": 5
-  }'
-
-# 问答测试
-curl -X POST http://localhost:8000/query \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "如何创建 UIAbility 组件？",
-    "top_k": 6
-  }'
-```
-
-### 5. 运行评测
-
-```bash
-python scripts/eval.py
-python data/eval/eval_dataset.py
-```
 
 ## API 文档
 
@@ -470,7 +415,7 @@ Query → 意图识别 → 混合检索 → 意图增强 → 元数据过滤 →
 
 ### 调整检索参数
 
-编辑 `.env` 文件：
+编辑 `deploy/app.env` 文件后，重新执行 `docker compose --env-file deploy/app.env up -d`：
 
 ```bash
 CHUNK_TARGET_SIZE=600        # 目标块大小
@@ -499,20 +444,20 @@ docker logs openharmony-qdrant
 
 ```bash
 # 检查文档是否已同步
-ls -la data/raw/openharmony-docs/zh-cn/
+docker compose --env-file deploy/app.env exec app ls -la data/raw/openharmony-docs/zh-cn/
 
 # 查看详细日志
-python scripts/build_index.py 2>&1 | tee build.log
+docker compose --env-file deploy/app.env logs -f app
 ```
 
 ### API 调用失败
 
 ```bash
 # 检查模型配置
-grep -E '^(LLM_|EMBEDDING_|RERANK_)' .env
+grep -E '^(LLM_|EMBEDDING_|RERANK_)' deploy/app.env
 
 # 测试 embedding 生成
-python -c "from app.core.embedder import Embedder; e = Embedder(); print(len(e.embed_text('test')))"
+docker compose --env-file deploy/app.env exec app python -c "from app.core.embedder import Embedder; e = Embedder(); print(len(e.embed_text('test')))"
 ```
 
 ### 评测失败
@@ -522,10 +467,10 @@ python -c "from app.core.embedder import Embedder; e = Embedder(); print(len(e.e
 curl http://localhost:8000/health
 
 # 检查评测数据集
-python data/eval/eval_dataset.py
+docker compose --env-file deploy/app.env exec app python data/eval/eval_dataset.py
 
 # 运行单个问题测试
-python -c "
+docker compose --env-file deploy/app.env exec app python -c "
 from app.services.retriever import HybridRetriever
 r = HybridRetriever()
 chunks = r.retrieve('如何创建 UIAbility 组件？', top_k=5)

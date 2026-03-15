@@ -1,3 +1,6 @@
+/**
+ * Static copy and fallback data used by the deployed OpenHarmony Docs RAG console.
+ */
 import type { BuildRunSummary, ServiceStatus, StatsResponse } from '@/lib/types'
 
 export const navigationItems = [
@@ -111,14 +114,14 @@ print(skill.format_answer(result))`
 export const envGuideGroups = [
   {
     title: '核心模型配置',
-    description: '优先填写 LLM 和 Embedding 的 API Key、Base URL 与模型名。',
+    description: '优先填写 deploy/app.env 中的 LLM 和 Embedding 的 API Key、Base URL 与模型名。',
   },
   {
     title: '检索与重排',
-    description: '通过 RERANK_ENABLED、RERANK_MODEL、RETRIEVAL_TOP_K 等参数调节召回策略。',
+    description: '通过 RERANK_ENABLED、RERANK_MODEL、RETRIEVAL_TOP_K 等参数调节 Docker 部署后的召回策略。',
   },
   {
     title: '文档与索引',
-    description: 'DOCS_LOCAL_PATH、DOCS_INCLUDE_DIRS、CHUNK_TARGET_SIZE 会影响建库行为。',
+    description: 'DOCS_LOCAL_PATH、DOCS_INCLUDE_DIRS、CHUNK_TARGET_SIZE 会影响容器内的建库行为。',
   },
 ]

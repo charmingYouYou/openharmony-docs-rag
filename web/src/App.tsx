@@ -1,3 +1,6 @@
+/**
+ * Application shell for the deployed OpenHarmony Docs RAG console.
+ */
 import { ThemeProvider } from 'next-themes'
 import {
   BrowserRouter,
@@ -49,7 +52,7 @@ const pageCopy = {
   },
   '/services': {
     title: '服务状态',
-    description: '查看端口、能力摘要和 .env 原始配置。',
+    description: '查看端口、能力摘要和 deploy/app.env 原始配置。',
   },
   '/integrations': {
     title: '集成指南',
@@ -61,6 +64,9 @@ const pageCopy = {
   },
 } as const
 
+/**
+ * Render the routed console experience around the shared deployment workspace chrome.
+ */
 function ConsoleShell() {
   const location = useLocation()
   const currentPage = pageCopy[location.pathname as keyof typeof pageCopy] ?? pageCopy['/']
@@ -170,6 +176,9 @@ function ConsoleShell() {
   )
 }
 
+/**
+ * Mount the routed console with theme, tooltip, and toaster providers.
+ */
 function App() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

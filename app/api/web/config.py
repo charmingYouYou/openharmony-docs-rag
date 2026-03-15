@@ -1,4 +1,4 @@
-"""Env-file endpoints for the local web console."""
+"""Env-file endpoints for the Docker deployment web console."""
 
 from fastapi import APIRouter, HTTPException
 
@@ -11,13 +11,13 @@ env_service = EnvFileService()
 
 @router.get("/env", response_model=EnvPayload)
 def read_env():
-    """Return the raw .env file."""
+    """Return the raw deploy/app.env file."""
     return env_service.read_env()
 
 
 @router.put("/env", response_model=EnvPayload)
 def write_env(request: EnvUpdateRequest):
-    """Save raw .env file text."""
+    """Save raw deploy/app.env file text."""
     try:
         return env_service.write_env(request.raw)
     except ValueError as exc:
