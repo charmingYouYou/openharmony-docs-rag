@@ -283,6 +283,10 @@ export function useConsoleData() {
           message: payload.message,
           timestamp: new Date().toISOString(),
         })
+        if (payload.status && TERMINAL_STATUSES.has(payload.status)) {
+          // 终态任务一旦收到最终事件就主动关闭，避免浏览器自动重连后反复回放历史日志。
+          eventSource.close()
+        }
       } catch {
         addLog({
           seq: lastSeqRef.current + 1,

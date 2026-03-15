@@ -26,13 +26,26 @@ vi.mock('@/lib/api', () => mockApi)
 
 class EventSourceMock {
   static instances: EventSourceMock[] = []
+  private listeners = new Map<string, Array<(event: MessageEvent<string>) => void>>()
+  close = vi.fn()
 
   constructor() {
     EventSourceMock.instances.push(this)
   }
 
-  addEventListener() {}
-  close() {}
+  addEventListener(type: string, listener: (event: MessageEvent<string>) => void) {
+    const current = this.listeners.get(type) ?? []
+    current.push(listener)
+    this.listeners.set(type, current)
+  }
+
+  emit(type: string, payload: Record<string, unknown>) {
+    const listeners = this.listeners.get(type) ?? []
+    const event = {
+      data: JSON.stringify(payload),
+    } as MessageEvent<string>
+    listeners.forEach((listener) => listener(event))
+  }
 }
 
 function HookHarness() {
@@ -40,6 +53,7 @@ function HookHarness() {
 
   return (
     <div>
+      <div data-testid="log-count">{data.logs.length}</div>
       <button type="button" onClick={() => void data.persistEnv('API_PORT=9000\n')}>
         保存
       </button>
@@ -177,6 +191,29 @@ describe('useConsoleData', () => {
     await waitFor(() => {
       expect(mockApi.resumeBuild).toHaveBeenCalledWith('run-1')
       expect(EventSourceMock.instances).toHaveLength(2)
+    })
+  })
+
+  it('在收到终态状态事件后主动关闭事件流，避免暂停任务反复重连回放日志', async () => {
+    render(<HookHarness />)
+
+    await waitFor(() => {
+      expect(EventSourceMock.instances).toHaveLength(1)
+    })
+
+    const eventSource = EventSourceMock.instances[0]
+
+    act(() => {
+      eventSource.emit('status', {
+        seq: 1,
+        message: '已暂停，可继续增量恢复',
+        stage: 'paused',
+        status: 'paused',
+      })
+    })
+
+    await waitFor(() => {
+      expect(eventSource.close).toHaveBeenCalledTimes(1)
     })
   })
 })

@@ -390,11 +390,15 @@ class WebBuildManager:
 
     def _append_event(self, run: BuildRunState, event_name: str, data: Dict[str, Any]):
         """Store one structured event for later SSE replay."""
+        seq = len(run.events) + 1
         run.events.append(
             {
-                "seq": len(run.events) + 1,
+                "seq": seq,
                 "event": event_name,
-                "data": data,
+                "data": {
+                    **data,
+                    "seq": seq,
+                },
             }
         )
 

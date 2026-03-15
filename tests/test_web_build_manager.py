@@ -70,3 +70,17 @@ def test_full_rebuild_workflow_emits_reset_logs(monkeypatch: pytest.MonkeyPatch)
     assert "开始全量重建，准备清空 SQLite 和 Qdrant 现有索引" in messages
     assert "已清空 SQLite 和 Qdrant，开始重新建库" in messages
     assert observed["full_rebuild"] is True
+
+
+def test_append_event_includes_stable_seq_in_payload():
+    """Structured build events should expose one stable sequence for SSE deduplication."""
+    manager = WebBuildManager()
+    run = make_run(BuildMode.INCREMENTAL)
+
+    manager._append_event(run, "progress", {"message": "第一条"})
+    manager._append_event(run, "status", {"message": "第二条"})
+
+    assert run.events[0]["seq"] == 1
+    assert run.events[0]["data"]["seq"] == 1
+    assert run.events[1]["seq"] == 2
+    assert run.events[1]["data"]["seq"] == 2
