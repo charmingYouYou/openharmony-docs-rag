@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/charmingYouYou/openharmony-docs-rag/compare/v1.0.2...v1.1.0) (2026-03-15)
+
+### Features
+
+* **web:** sync runtime env and verify build workflows ([3201de0](https://github.com/charmingYouYou/openharmony-docs-rag/commit/3201de0331e63bdb0372c4be623b8a952c8eb4d1))
+
 ## [1.0.2](https://github.com/charmingYouYou/openharmony-docs-rag/compare/v1.0.1...v1.0.2) (2026-03-15)
 
 ### Bug Fixes
