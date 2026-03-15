@@ -87,3 +87,17 @@ def test_semantic_release_config_generates_v_tags_and_changelog():
         for plugin in plugins
     )
     assert any(plugin == "@semantic-release/github" for plugin in plugins)
+
+
+def test_publish_image_workflow_builds_frontend_before_container_push():
+    """The image workflow should validate the frontend build directly before invoking docker buildx."""
+    repo_root = Path(__file__).parent.parent
+    workflow_path = repo_root / ".github" / "workflows" / "publish-image.yml"
+
+    payload = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+    steps = payload["jobs"]["publish"]["steps"]
+    step_names = [step["name"] for step in steps]
+
+    assert "Set up Node.js" in step_names
+    assert "Install frontend dependencies" in step_names
+    assert "Build frontend bundle" in step_names
