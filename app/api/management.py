@@ -3,10 +3,9 @@
 import subprocess
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
-from typing import List, Dict, Any
 
+from app.settings import get_settings
 from app.storage.sqlite_client import SQLiteClient
-from app.settings import settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -22,8 +21,9 @@ async def sync_repo():
     """
     try:
         logger.info("Starting repository sync")
+        runtime_settings = get_settings()
 
-        repo_path = Path(settings.docs_local_path)
+        repo_path = Path(runtime_settings.docs_local_path)
 
         if not repo_path.exists():
             # Clone repository
@@ -32,8 +32,8 @@ async def sync_repo():
                 [
                     "git", "clone",
                     "--depth", "1",
-                    "--branch", settings.docs_branch,
-                    settings.docs_repo_url,
+                    "--branch", runtime_settings.docs_branch,
+                    runtime_settings.docs_repo_url,
                     str(repo_path)
                 ],
                 capture_output=True,
@@ -49,7 +49,14 @@ async def sync_repo():
             # Pull latest changes
             logger.info(f"Pulling latest changes for {repo_path}")
             result = subprocess.run(
-                ["git", "-C", str(repo_path), "pull", "origin", settings.docs_branch],
+                [
+                    "git",
+                    "-C",
+                    str(repo_path),
+                    "pull",
+                    "origin",
+                    runtime_settings.docs_branch,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=60
@@ -62,7 +69,7 @@ async def sync_repo():
 
         # Count files
         file_count = 0
-        for dir_name in settings.include_dirs_list:
+        for dir_name in runtime_settings.include_dirs_list:
             target_dir = repo_path / dir_name
             if target_dir.exists():
                 files = list(target_dir.rglob("*.md"))
@@ -134,71 +141,38 @@ async def list_documents(
     """
     try:
         sqlite = SQLiteClient()
-
-        # Build query
-        query = "SELECT * FROM documents WHERE 1=1"
-        params = []
-
-        if top_dir:
-            query += " AND top_dir = ?"
-            params.append(top_dir)
-
-        if kit:
-            query += " AND kit = ?"
-            params.append(kit)
-
-        if page_kind:
-            query += " AND page_kind = ?"
-            params.append(page_kind)
-
-        if index_status:
-            query += " AND index_status = ?"
-            params.append(index_status)
-
-        query += " ORDER BY path LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-
-        # Execute query
-        import aiosqlite
-        async with aiosqlite.connect(sqlite.db_path) as db:
-            db.row_factory = aiosqlite.Row
-            async with db.execute(query, params) as cursor:
-                rows = await cursor.fetchall()
-                documents = [dict(row) for row in rows]
-
-            # Get total count
-            count_query = "SELECT COUNT(*) FROM documents WHERE 1=1"
-            count_params = []
-
-            if top_dir:
-                count_query += " AND top_dir = ?"
-                count_params.append(top_dir)
-
-            if kit:
-                count_query += " AND kit = ?"
-                count_params.append(kit)
-
-            if page_kind:
-                count_query += " AND page_kind = ?"
-                count_params.append(page_kind)
-
-            if index_status:
-                count_query += " AND index_status = ?"
-                count_params.append(index_status)
-
-            async with db.execute(count_query, count_params) as cursor:
-                row = await cursor.fetchone()
-                total = row[0] if row else 0
-
-        return {
-            "documents": documents,
-            "total": total,
-            "limit": limit,
-            "offset": offset
-        }
+        return await sqlite.list_documents(
+            top_dir=top_dir,
+            kit=kit,
+            page_kind=page_kind,
+            index_status=index_status,
+            limit=limit,
+            offset=offset,
+        )
 
     except Exception as e:
         logger.error(f"Failed to list documents: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/documents/{doc_id}")
+async def get_document_detail(doc_id: str):
+    """
+    Return one indexed document record as a read-only detail payload.
+
+    This endpoint exists for the web explorer detail drawer and intentionally
+    does not expose any mutation operation.
+    """
+    try:
+        sqlite = SQLiteClient()
+        document = await sqlite.get_document_detail(doc_id)
+        if document is None:
+            raise HTTPException(status_code=404, detail="文档不存在")
+        return document
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get document detail: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -211,55 +185,7 @@ async def get_stats():
     """
     try:
         sqlite = SQLiteClient()
-
-        import aiosqlite
-        async with aiosqlite.connect(sqlite.db_path) as db:
-            # Total documents
-            async with db.execute("SELECT COUNT(*) FROM documents") as cursor:
-                row = await cursor.fetchone()
-                total_docs = row[0] if row else 0
-
-            # By top_dir
-            async with db.execute(
-                "SELECT top_dir, COUNT(*) as count FROM documents GROUP BY top_dir"
-            ) as cursor:
-                rows = await cursor.fetchall()
-                by_top_dir = {row[0]: row[1] for row in rows}
-
-            # By kit
-            async with db.execute(
-                "SELECT kit, COUNT(*) as count FROM documents WHERE kit IS NOT NULL GROUP BY kit ORDER BY count DESC LIMIT 10"
-            ) as cursor:
-                rows = await cursor.fetchall()
-                by_kit = {row[0]: row[1] for row in rows}
-
-            # By page_kind
-            async with db.execute(
-                "SELECT page_kind, COUNT(*) as count FROM documents GROUP BY page_kind"
-            ) as cursor:
-                rows = await cursor.fetchall()
-                by_page_kind = {row[0]: row[1] for row in rows}
-
-            # Document type flags
-            async with db.execute(
-                "SELECT SUM(is_api_reference) as api_count, SUM(is_guide) as guide_count, SUM(is_design_spec) as design_count FROM documents"
-            ) as cursor:
-                row = await cursor.fetchone()
-                api_count = row[0] if row and row[0] else 0
-                guide_count = row[1] if row and row[1] else 0
-                design_count = row[2] if row and row[2] else 0
-
-        return {
-            "total_documents": total_docs,
-            "by_top_dir": by_top_dir,
-            "by_kit": by_kit,
-            "by_page_kind": by_page_kind,
-            "document_types": {
-                "api_reference": api_count,
-                "guide": guide_count,
-                "design_spec": design_count
-            }
-        }
+        return await sqlite.get_stats()
 
     except Exception as e:
         logger.error(f"Failed to get stats: {e}")

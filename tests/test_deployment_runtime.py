@@ -10,7 +10,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.main import create_app
-from app.settings import Settings
+from app.settings import Settings, SettingsProvider
 
 
 def test_settings_read_deploy_app_env_and_ignore_compose_only_keys(tmp_path):
@@ -64,13 +64,28 @@ def test_serves_built_web_assets_and_spa_routes(tmp_path):
     assert "console.log('ok')" in asset_response.text
 
 
-def test_startup_initializes_sqlite_metadata_file(tmp_path, monkeypatch):
+def test_startup_initializes_sqlite_metadata_file(tmp_path):
     """Fresh installs should create the SQLite metadata database during app startup."""
     db_path = tmp_path / "storage" / "metadata.db"
+    env_path = tmp_path / "deploy" / "app.env"
+    env_path.parent.mkdir(parents=True)
+    env_path.write_text(
+        "\n".join(
+            [
+                "LLM_API_KEY=sk-chat",
+                "LLM_BASE_URL=https://llm.example.com/v1",
+                "LLM_CHAT_MODEL=qwen-max",
+                "EMBEDDING_API_KEY=sk-embed",
+                "EMBEDDING_BASE_URL=https://embed.example.com/v1",
+                "EMBEDDING_MODEL=Qwen/Qwen3-Embedding-4B",
+                f"SQLITE_DB_PATH={db_path}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
-    monkeypatch.setattr("app.main.settings.sqlite_db_path", str(db_path))
-
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(settings_provider=SettingsProvider(env_files=(env_path,)))) as client:
         response = client.get("/docs")
 
     assert response.status_code == 200

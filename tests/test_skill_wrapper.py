@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the distributable skill wrapper."""
+"""Tests for the query-only distributable skill wrapper."""
 
 from pathlib import Path
 import sys
@@ -12,42 +12,40 @@ from skill.rag_skill_wrapper import OpenHarmonyDocsRAGSkill
 
 
 class DummyClient:
-    """Capture calls made by the skill wrapper."""
+    """Capture `/query` calls made by the skill wrapper."""
 
     def __init__(self):
         self.calls = []
 
-    async def retrieve(self, query, top_k, filters=None):
-        self.calls.append(("retrieve", query, top_k, filters))
-        return {"chunks": [{"score": 0.9, "metadata": {"title": "ArkUI"}}]}
-
     async def query(self, query, top_k, filters=None):
         self.calls.append(("query", query, top_k, filters))
-        return {"answer": "ok", "citations": [], "intent": {"type": "guide", "confidence": 0.8}}
-
-    async def sync_repo(self):
-        self.calls.append(("sync_repo",))
-        return {"status": "success"}
-
-    async def stats(self):
-        self.calls.append(("stats",))
-        return {"total_documents": 5299}
+        return {
+            "answer": "ok",
+            "citations": [
+                {
+                    "title": "UIAbility",
+                    "source_url": "https://example.test/uiability",
+                    "path": "zh-cn/application-dev/ui/uiability.md",
+                }
+            ],
+            "intent": {"type": "guide", "confidence": 0.8},
+        }
 
 
 @pytest.mark.asyncio
-async def test_skill_wrapper_delegates_to_shared_client():
+async def test_skill_wrapper_only_delegates_query_calls():
     client = DummyClient()
     skill = OpenHarmonyDocsRAGSkill(client=client)
 
-    retrieve_result = await skill.search_docs("ArkUI 组件", top_k=5, filters={"kit": "ArkUI"})
-    query_result = await skill.ask_question("如何创建 UIAbility 组件？")
-    stats_result = await skill.get_stats()
+    query_result = await skill.ask_question(
+        "如何创建 UIAbility 组件？",
+        filters={"kit": "Ability Kit"},
+    )
+    formatted = skill.format_answer(query_result)
 
-    assert retrieve_result["chunks"][0]["metadata"]["title"] == "ArkUI"
     assert query_result["answer"] == "ok"
-    assert stats_result["total_documents"] == 5299
+    assert "UIAbility" in formatted
+    assert "guide" in formatted
     assert client.calls == [
-        ("retrieve", "ArkUI 组件", 5, {"kit": "ArkUI"}),
-        ("query", "如何创建 UIAbility 组件？", 6, None),
-        ("stats",),
+        ("query", "如何创建 UIAbility 组件？", 6, {"kit": "Ability Kit"}),
     ]

@@ -9,8 +9,9 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.main import app
+from app.main import create_app
 from app.services.env_file_service import EnvFileService
+from app.settings import SettingsProvider
 
 
 class FakeBuildManager:
@@ -140,15 +141,43 @@ class FakeServiceStatusService:
         ]
 
 
+def write_runtime_env(env_path: Path, sqlite_db_path: Path) -> None:
+    """Write one minimal env file that satisfies app startup validation."""
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.write_text(
+        "\n".join(
+            [
+                "API_HOST=127.0.0.1",
+                "API_PORT=8000",
+                "QDRANT_HOST=127.0.0.1",
+                "QDRANT_PORT=6333",
+                "LLM_API_KEY=sk-chat",
+                "LLM_BASE_URL=https://llm.example.com/v1",
+                "LLM_CHAT_MODEL=qwen-max",
+                "EMBEDDING_API_KEY=sk-embed",
+                "EMBEDDING_BASE_URL=https://embed.example.com/v1",
+                "EMBEDDING_MODEL=Qwen/Qwen3-Embedding-4B",
+                f"SQLITE_DB_PATH={sqlite_db_path}",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 @pytest.fixture
 def client(monkeypatch, tmp_path):
+    """Create one test client with fake web services and a scoped runtime settings provider."""
     from app.api.web import builds, config, services
 
     monkeypatch.setattr(builds, "build_manager", FakeBuildManager())
     monkeypatch.setattr(config, "env_service", FakeEnvService())
     monkeypatch.setattr(services, "service_status_service", FakeServiceStatusService())
-    monkeypatch.setattr("app.main.settings.sqlite_db_path", str(tmp_path / "storage" / "metadata.db"))
-    return TestClient(app)
+    env_path = tmp_path / "deploy" / "app.env"
+    sqlite_db_path = tmp_path / "storage" / "metadata.db"
+    write_runtime_env(env_path, sqlite_db_path)
+    provider = SettingsProvider(env_files=(env_path,))
+    return TestClient(create_app(settings_provider=provider))
 
 
 def test_build_routes_expose_start_pause_resume_and_list(client):

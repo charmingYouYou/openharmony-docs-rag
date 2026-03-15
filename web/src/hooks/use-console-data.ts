@@ -7,6 +7,7 @@ import {
   getApiBaseUrl,
   getBuildRun,
   getCapabilities,
+  getDocumentDetail,
   getStats,
   listBuildRuns,
   listDocuments,
@@ -27,6 +28,7 @@ import type {
   BuildRunSummary,
   CapabilitiesResponse,
   ConsoleLogEntry,
+  DocumentDetail,
   DocumentsResponse,
   EnvPayload,
   ServiceStatus,
@@ -42,6 +44,7 @@ export function useConsoleData() {
   const [runs, setRuns] = useState<BuildRunSummary[]>([])
   const [activeRun, setActiveRun] = useState<BuildRunSummary | null>(null)
   const [logs, setLogs] = useState<ConsoleLogEntry[]>([])
+  const [eventStreamToken, setEventStreamToken] = useState(0)
   const [services, setServices] = useState<ServiceStatus[]>(fallbackServices)
   const [stats, setStats] = useState<StatsResponse>(fallbackStats)
   const [capabilities, setCapabilities] = useState<CapabilitiesResponse | null>(
@@ -58,11 +61,13 @@ export function useConsoleData() {
     limit: 50,
     offset: 0,
   })
+  const [documentDetail, setDocumentDetail] = useState<DocumentDetail | null>(null)
   const [loading, setLoading] = useState({
     build: false,
     services: false,
     env: false,
     documents: false,
+    documentDetail: false,
   })
   const [errors, setErrors] = useState<Record<string, string | null>>({})
   const lastSeqRef = useRef(0)
@@ -172,6 +177,17 @@ export function useConsoleData() {
     }
   }
 
+  const loadDocumentDetail = async (docId: string) => {
+    setLoading((current) => ({ ...current, documentDetail: true }))
+    try {
+      const detail = await getDocumentDetail(docId)
+      setDocumentDetail(detail)
+      return detail
+    } finally {
+      setLoading((current) => ({ ...current, documentDetail: false }))
+    }
+  }
+
   const beginBuild = async (mode: BuildMode) => {
     setLoading((current) => ({ ...current, build: true }))
     try {
@@ -179,6 +195,7 @@ export function useConsoleData() {
       lastSeqRef.current = 0
       setLogs([])
       mergeRun(run)
+      setEventStreamToken((current) => current + 1)
       setErrors((current) => ({ ...current, build: null }))
       return run
     } catch (error) {
@@ -199,10 +216,9 @@ export function useConsoleData() {
   }
 
   const requestResume = async (runId: string) => {
-    lastSeqRef.current = 0
-    setLogs([])
     const run = await resumeBuild(runId)
     mergeRun(run)
+    setEventStreamToken((current) => current + 1)
     return run
   }
 
@@ -211,6 +227,12 @@ export function useConsoleData() {
     try {
       const payload = await saveEnvFile(raw)
       setEnvPayload(payload)
+      await Promise.all([
+        refreshServices(),
+        refreshCapabilities(),
+        refreshStats(),
+        refreshDocuments(),
+      ])
       setErrors((current) => ({ ...current, env: null }))
       return payload
     } catch (error) {
@@ -286,7 +308,7 @@ export function useConsoleData() {
     return () => {
       eventSource.close()
     }
-  }, [liveRun?.id])
+  }, [liveRun?.id, eventStreamToken])
 
   useEffect(() => {
     if (!liveRun?.id || TERMINAL_STATUSES.has(liveRun.status)) {
@@ -324,6 +346,7 @@ export function useConsoleData() {
     capabilities,
     envPayload,
     documents,
+    documentDetail,
     loading,
     errors,
     topDirOptions,
@@ -336,5 +359,6 @@ export function useConsoleData() {
     refreshEnv,
     persistEnv,
     refreshDocuments,
+    loadDocumentDetail,
   }
 }

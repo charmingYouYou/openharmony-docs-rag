@@ -12,7 +12,7 @@ from app.core.embedder import Embedder
 from app.core.reranker import Reranker
 from app.storage.qdrant_client import QdrantClient
 from app.utils.query_preprocessor import QueryPreprocessor
-from app.settings import settings
+from app.settings import Settings, settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -21,9 +21,11 @@ logger = setup_logger(__name__)
 class HybridRetriever:
     """Hybrid retrieval with intent-based boosting."""
 
-    def __init__(self):
-        self.embedder = Embedder()
-        self.qdrant = QdrantClient()
+    def __init__(self, settings_snapshot: Settings | None = None):
+        """Bind retrieval dependencies to one optional runtime settings snapshot."""
+        self.settings_snapshot = settings_snapshot or settings
+        self.embedder = Embedder(settings_snapshot=self.settings_snapshot)
+        self.qdrant = QdrantClient(settings_snapshot=self.settings_snapshot)
         self.preprocessor = QueryPreprocessor()
         self.reranker = self._build_reranker()
 
@@ -57,10 +59,11 @@ class HybridRetriever:
 
         # Generate query embedding
         query_embedding = self.embedder.embed_text(preprocessed_query.normalized_query)
+        runtime_settings = self._runtime_settings()
 
         # Search in Qdrant (retrieve more candidates when rerank is enabled)
         if self.reranker:
-            search_top_k = max(top_k * 3, settings.rerank_top_k)
+            search_top_k = max(top_k * 3, runtime_settings.rerank_top_k)
         else:
             search_top_k = min(top_k * 3, 30)
         results = self.qdrant.search(
@@ -102,7 +105,7 @@ class HybridRetriever:
         reranked = self.reranker.rerank(
             query=query,
             documents=[chunk.text for chunk in chunks],
-            top_n=min(settings.rerank_top_k, len(chunks)),
+            top_n=min(self._runtime_settings().rerank_top_k, len(chunks)),
         )
 
         reordered = []
@@ -121,12 +124,25 @@ class HybridRetriever:
 
     def _build_reranker(self) -> Optional[Reranker]:
         """Create reranker only when fully configured."""
-        if not settings.rerank_enabled:
+        runtime_settings = self._runtime_settings()
+        if not runtime_settings.rerank_enabled:
             return None
-        if not settings.rerank_is_configured:
+        rerank_api_key = (
+            runtime_settings.rerank_api_key or runtime_settings.embedding_api_key
+        )
+        rerank_base_url = (
+            runtime_settings.rerank_base_url or runtime_settings.embedding_base_url
+        )
+        if not (runtime_settings.rerank_model and rerank_api_key and rerank_base_url):
             logger.warning("Rerank is enabled but configuration is incomplete; skipping reranker")
             return None
-        return Reranker()
+        if runtime_settings is settings:
+            return Reranker()
+        return Reranker(settings_snapshot=runtime_settings)
+
+    def _runtime_settings(self):
+        """Return the active settings snapshot while preserving tests that bypass __init__."""
+        return getattr(self, "settings_snapshot", settings)
 
     def apply_intent_boost(
         self, chunks: List[RetrievedChunk], intent: QueryIntent

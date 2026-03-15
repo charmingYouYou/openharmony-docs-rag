@@ -5,6 +5,7 @@ import type {
   BuildMode,
   BuildRunSummary,
   CapabilitiesResponse,
+  DocumentDetail,
   DocumentsResponse,
   EnvPayload,
   QueryResponse,
@@ -131,6 +132,10 @@ export function listDocuments(params: {
   search.set('limit', String(params.limit ?? 50))
   search.set('offset', String(params.offset ?? 0))
   return requestJson<DocumentsResponse>(`/documents?${search.toString()}`)
+}
+
+export function getDocumentDetail(docId: string) {
+  return requestJson<DocumentDetail>(`/documents/${docId}`)
 }
 
 export function runRetrieve(payload: unknown) {

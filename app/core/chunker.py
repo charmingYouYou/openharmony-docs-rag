@@ -6,7 +6,7 @@ from typing import List, Tuple
 from markdown_it import MarkdownIt
 
 from app.schemas import ParsedDocument, Chunk, PageKind
-from app.settings import settings
+from app.settings import Settings, settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -20,10 +20,13 @@ class HeadingAwareChunker:
     def __init__(
         self,
         target_size: int = None,
-        overlap: int = None
+        overlap: int = None,
+        settings_snapshot: Settings | None = None,
     ):
-        self.target_size = target_size or settings.chunk_target_size
-        self.overlap = overlap or settings.chunk_overlap
+        """Bind chunk sizing to one optional runtime settings snapshot."""
+        self.settings_snapshot = settings_snapshot or settings
+        self.target_size = target_size or self.settings_snapshot.chunk_target_size
+        self.overlap = overlap or self.settings_snapshot.chunk_overlap
         self.md = MarkdownIt()
 
     def chunk_document(self, doc: ParsedDocument) -> List[Chunk]:

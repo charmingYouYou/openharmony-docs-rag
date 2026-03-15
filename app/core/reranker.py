@@ -6,7 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
-from app.settings import settings
+from app.settings import Settings, settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,10 +15,18 @@ logger = setup_logger(__name__)
 class Reranker:
     """Rerank recalled documents through the configured rerank endpoint."""
 
-    def __init__(self):
-        self.api_key = settings.effective_rerank_api_key
-        self.base_url = settings.effective_rerank_base_url
-        self.model = settings.rerank_model
+    def __init__(self, settings_snapshot: Settings | None = None):
+        """Bind rerank requests to one optional runtime settings snapshot."""
+        self.settings_snapshot = settings_snapshot or settings
+        self.api_key = (
+            self.settings_snapshot.rerank_api_key
+            or self.settings_snapshot.embedding_api_key
+        )
+        self.base_url = (
+            self.settings_snapshot.rerank_base_url
+            or self.settings_snapshot.embedding_base_url
+        )
+        self.model = self.settings_snapshot.rerank_model
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -44,7 +52,7 @@ class Reranker:
             payload["top_n"] = top_n
 
         response = None
-        for attempt in range(1, settings.rerank_max_retries + 1):
+        for attempt in range(1, self.settings_snapshot.rerank_max_retries + 1):
             response = requests.post(
                 self._rerank_url(),
                 headers=self.headers,
@@ -56,15 +64,15 @@ class Reranker:
                 response.raise_for_status()
                 break
 
-            if attempt == settings.rerank_max_retries:
+            if attempt == self.settings_snapshot.rerank_max_retries:
                 response.raise_for_status()
 
             logger.warning(
                 "Rerank request hit rate limit on attempt "
-                f"{attempt}/{settings.rerank_max_retries}; sleeping "
-                f"{settings.rerank_retry_backoff_seconds}s before retry"
+                f"{attempt}/{self.settings_snapshot.rerank_max_retries}; sleeping "
+                f"{self.settings_snapshot.rerank_retry_backoff_seconds}s before retry"
             )
-            time.sleep(settings.rerank_retry_backoff_seconds)
+            time.sleep(self.settings_snapshot.rerank_retry_backoff_seconds)
 
         results = response.json().get("results", [])
         logger.info(f"Reranked {len(documents)} candidates via configured API")

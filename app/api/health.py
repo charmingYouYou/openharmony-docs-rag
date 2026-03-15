@@ -3,9 +3,9 @@
 from fastapi import APIRouter
 
 from app.schemas import HealthResponse, CapabilitiesResponse
+from app.settings import get_settings
 from app.storage.qdrant_client import QdrantClient
 from app.storage.sqlite_client import SQLiteClient
-from app.settings import settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -55,10 +55,11 @@ async def health_check():
 @router.get("/capabilities", response_model=CapabilitiesResponse)
 async def get_capabilities():
     """Get system capabilities."""
+    runtime_settings = get_settings()
     return CapabilitiesResponse(
         supported_intents=["guide", "api_usage", "design_spec", "concept", "general"],
         supported_filters=["top_dir", "kit", "subsystem", "page_kind", "exclude_readme"],
         max_top_k=50,
-        embedding_model=settings.embedding_model,
-        chat_model=settings.llm_chat_model
+        embedding_model=runtime_settings.embedding_model,
+        chat_model=runtime_settings.llm_chat_model
     )

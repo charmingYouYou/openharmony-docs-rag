@@ -9,7 +9,7 @@ from app.schemas import (
     QueryIntent,
     Citation
 )
-from app.settings import settings
+from app.settings import Settings, settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -18,12 +18,14 @@ logger = setup_logger(__name__)
 class AnswerService:
     """Generate answers using LLM based on retrieved context."""
 
-    def __init__(self):
+    def __init__(self, settings_snapshot: Settings | None = None):
+        """Bind answer generation to one optional runtime settings snapshot."""
+        self.settings_snapshot = settings_snapshot or settings
         self.client = OpenAI(
-            api_key=settings.llm_api_key,
-            base_url=settings.llm_base_url
+            api_key=self.settings_snapshot.llm_api_key,
+            base_url=self.settings_snapshot.llm_base_url
         )
-        self.model = settings.llm_chat_model
+        self.model = self.settings_snapshot.llm_chat_model
 
     def generate_answer(
         self,

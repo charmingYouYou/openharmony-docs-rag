@@ -32,6 +32,8 @@ import type {
   CapabilitiesResponse,
   Citation,
   ConsoleLogEntry,
+  DocumentDetail,
+  DocumentRecord,
   DocumentsResponse,
   EnvPayload,
   QueryResponse,
@@ -307,6 +309,9 @@ export function WorkspacePage({
   )
 }
 
+/**
+ * Surface all build workflow controls and log output needed by operators and E2E automation.
+ */
 export function BuildCenterPage({
   latestRun,
   logs,
@@ -332,22 +337,33 @@ export function BuildCenterPage({
                   默认模式会同步仓库并执行增量构建。全量重建是危险操作。
                 </CardDescription>
               </div>
-              <StatusBadge
-                label={displayLabel(latestRun.status)}
-                tone={statusTone(latestRun.status)}
-                pulse={latestRun.status === 'running'}
-              />
+              <div data-testid="build-status">
+                <StatusBadge
+                  label={displayLabel(latestRun.status)}
+                  tone={statusTone(latestRun.status)}
+                  pulse={latestRun.status === 'running'}
+                />
+              </div>
             </div>
             <Progress value={percent(latestRun.processed_docs, latestRun.total_docs)} />
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <ActionButton label="同步并增量构建" onClick={() => void onStartBuild('sync_incremental')} />
-              <ActionButton label="仅增量构建" onClick={() => void onStartBuild('incremental')} />
+              <ActionButton
+                label="同步并增量构建"
+                testId="build-start-sync"
+                onClick={() => void onStartBuild('sync_incremental')}
+              />
+              <ActionButton
+                label="仅增量构建"
+                testId="build-start-incremental"
+                onClick={() => void onStartBuild('incremental')}
+              />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <ActionButton
                 label={latestRun.can_pause ? '安全暂停' : '继续增量恢复'}
+                testId="build-pause-resume"
                 onClick={() =>
                   latestRun.can_pause
                     ? void onPause(latestRun.id)
@@ -362,6 +378,7 @@ export function BuildCenterPage({
                   <Button
                     variant="outline"
                     className="w-full rounded-2xl border-rose-500/40 text-rose-200 hover:bg-rose-500/10"
+                    data-testid="build-full-rebuild"
                   >
                     全量重建
                   </Button>
@@ -376,6 +393,7 @@ export function BuildCenterPage({
                   <DialogFooter>
                     <Button
                       className="rounded-xl bg-rose-500 text-white hover:bg-rose-400"
+                      data-testid="build-full-rebuild-confirm"
                       onClick={() => void onStartBuild('full_rebuild')}
                     >
                       确认重建
@@ -390,7 +408,11 @@ export function BuildCenterPage({
                 <InfoRow label="当前文件" value={latestRun.current_path || '等待任务启动'} />
                 <InfoRow label="已处理" value={String(latestRun.processed_docs)} />
                 <InfoRow label="失败数" value={String(latestRun.failed_docs)} />
-                <InfoRow label="跳过数" value={String(latestRun.skipped_docs)} />
+                <InfoRow
+                  label="跳过数"
+                  value={String(latestRun.skipped_docs)}
+                  testId="build-stat-skipped"
+                />
                 <InfoRow label="最近更新" value={formatDate(latestRun.updated_at)} />
               </div>
             </div>
@@ -405,7 +427,10 @@ export function BuildCenterPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[420px] rounded-2xl border border-white/10 bg-black/30 p-4">
+            <ScrollArea
+              className="h-[420px] rounded-2xl border border-white/10 bg-black/30 p-4"
+              data-testid="build-log-panel"
+            >
               <div className="space-y-3 font-mono text-xs">
                 {logs.length ? (
                   logs.map((log) => (
@@ -951,15 +976,23 @@ export function IntegrationsPage() {
   )
 }
 
+/**
+ * Expose read-only index statistics and document metadata browsing for operational verification.
+ */
 export function IndexExplorerPage({
   stats,
   documents,
+  documentDetail,
+  documentDetailLoading = false,
   topDirOptions,
   pageKindOptions,
   onRefreshDocuments,
+  onLoadDocumentDetail,
 }: {
   stats: StatsResponse
   documents: DocumentsResponse
+  documentDetail?: DocumentDetail | null
+  documentDetailLoading?: boolean
   topDirOptions: string[]
   pageKindOptions: string[]
   onRefreshDocuments: (params?: {
@@ -967,10 +1000,12 @@ export function IndexExplorerPage({
     topDir?: string
     pageKind?: string
   }) => Promise<unknown>
+  onLoadDocumentDetail?: (docId: string) => Promise<unknown>
 }) {
   const [indexStatus, setIndexStatus] = useState('all')
   const [topDir, setTopDir] = useState('all')
   const [pageKind, setPageKind] = useState('all')
+  const [selectedDocument, setSelectedDocument] = useState<DocumentRecord | null>(null)
 
   const topDirChart = useMemo(() => topBarData(stats.by_top_dir), [stats.by_top_dir])
   const pageKindChart = useMemo(
@@ -978,6 +1013,10 @@ export function IndexExplorerPage({
     [stats.by_page_kind]
   )
   const refreshDocumentsEvent = useEffectEvent(onRefreshDocuments)
+  const selectedDetail =
+    documentDetail && selectedDocument && documentDetail.doc_id === selectedDocument.doc_id
+      ? documentDetail
+      : selectedDocument
 
   useEffect(() => {
     void refreshDocumentsEvent({ indexStatus, topDir, pageKind })
@@ -1078,6 +1117,7 @@ export function IndexExplorerPage({
                   <TableHead>类型</TableHead>
                   <TableHead>状态</TableHead>
                   <TableHead>错误</TableHead>
+                  <TableHead className="text-right">详情</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -1096,11 +1136,57 @@ export function IndexExplorerPage({
                       <TableCell className="max-w-sm truncate text-xs text-muted-foreground">
                         {document.last_error ?? '—'}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Dialog
+                          onOpenChange={(open) => {
+                            if (!open) {
+                              setSelectedDocument(null)
+                              return
+                            }
+                            setSelectedDocument(document)
+                            if (onLoadDocumentDetail) {
+                              void onLoadDocumentDetail(document.doc_id)
+                            }
+                          }}
+                        >
+                          <DialogTrigger asChild>
+                            <Button type="button" variant="outline" className="rounded-xl">
+                              查看详情
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-3xl">
+                            <DialogHeader>
+                              <div className="flex items-center gap-2">
+                                <DialogTitle>文档只读详情</DialogTitle>
+                                <Badge
+                                  variant="outline"
+                                  className="rounded-full border-border/70 bg-background/60"
+                                >
+                                  只读
+                                </Badge>
+                              </div>
+                              <DialogDescription>
+                                这里展示 SQLite 中的只读元数据，用于核对索引结果。
+                              </DialogDescription>
+                            </DialogHeader>
+                            {selectedDetail ? (
+                              <ReadOnlyDocumentDetail
+                                document={selectedDetail}
+                                loading={documentDetailLoading}
+                              />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                请选择文档后查看详情。
+                              </p>
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                       当前过滤条件下暂无文档。
                     </TableCell>
                   </TableRow>
@@ -1166,10 +1252,12 @@ function QuickLinkCard({
 
 function ActionButton({
   label,
+  testId,
   onClick,
   disabled,
 }: {
   label: string
+  testId?: string
   onClick: () => void
   disabled?: boolean
 }) {
@@ -1178,6 +1266,7 @@ function ActionButton({
       type="button"
       variant="outline"
       className="w-full rounded-2xl"
+      data-testid={testId}
       onClick={onClick}
       disabled={disabled}
     >
@@ -1186,11 +1275,79 @@ function ActionButton({
   )
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+/**
+ * Render a compact label/value pair for status and detail summaries.
+ */
+function InfoRow({
+  label,
+  value,
+  testId,
+}: {
+  label: string
+  value: string
+  testId?: string
+}) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-background/45 px-4 py-3">
+    <div
+      className="flex items-start justify-between gap-4 rounded-2xl border border-border/70 bg-background/45 px-4 py-3"
+      data-testid={testId}
+    >
       <span className="text-muted-foreground">{label}</span>
       <span className="max-w-[60%] text-right text-sm font-medium">{value}</span>
+    </div>
+  )
+}
+
+/**
+ * Present document metadata in a read-only layout so operators can verify indexed records safely.
+ */
+function ReadOnlyDocumentDetail({
+  document,
+  loading,
+}: {
+  document: DocumentRecord | DocumentDetail
+  loading: boolean
+}) {
+  return (
+    <div className="grid gap-3">
+      {loading ? (
+        <p className="text-sm text-muted-foreground">正在读取最新详情...</p>
+      ) : null}
+      <InfoRow label="标题" value={document.title ?? '—'} />
+      <InfoRow label="路径" value={document.path} />
+      <InfoRow label="Kit" value={document.kit ?? '—'} />
+      <InfoRow
+        label="页面类型"
+        value={document.page_kind ? displayLabel(document.page_kind) : '—'}
+      />
+      <InfoRow
+        label="索引状态"
+        value={displayLabel(document.index_status ?? 'unknown')}
+      />
+      <InfoRow
+        label="Chunk 数"
+        value={`${document.indexed_chunk_count ?? 0} / ${document.chunk_count ?? 0}`}
+      />
+      <InfoRow label="错误信息" value={document.last_error ?? '—'} />
+      <InfoRow label="最近索引" value={formatDate(document.last_indexed_at)} />
+      {'source_url' in document ? (
+        <InfoRow label="源地址" value={document.source_url ?? '—'} />
+      ) : null}
+      {'top_dir' in document ? (
+        <InfoRow label="一级目录" value={document.top_dir ?? '—'} />
+      ) : null}
+      {'sub_dir' in document ? (
+        <InfoRow label="子目录" value={document.sub_dir ?? '—'} />
+      ) : null}
+      {'subsystem' in document ? (
+        <InfoRow label="子系统" value={document.subsystem ?? '—'} />
+      ) : null}
+      {'owner' in document ? (
+        <InfoRow label="Owner" value={document.owner ?? '—'} />
+      ) : null}
+      {'created_at' in document ? (
+        <InfoRow label="创建时间" value={formatDate(document.created_at)} />
+      ) : null}
     </div>
   )
 }

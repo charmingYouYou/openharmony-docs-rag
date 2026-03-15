@@ -14,7 +14,7 @@ from typing import Callable, Dict, List, Optional
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.settings import settings
+from app.settings import Settings, settings
 from app.core.parser import MarkdownParser
 from app.core.chunker import HeadingAwareChunker
 from app.core.embedder import Embedder
@@ -31,13 +31,26 @@ INDEX_SIGNATURE_VERSION = "2026-03-14-incremental-v1"
 class IndexBuilder:
     """Build document index from OpenHarmony documentation."""
 
-    def __init__(self):
-        self.parser = MarkdownParser()
-        self.chunker = HeadingAwareChunker()
-        self.embedder = Embedder()
-        self.qdrant = QdrantClient()
-        self.sqlite = SQLiteClient()
-        self.base_path = Path(settings.docs_local_path)
+    def __init__(
+        self,
+        settings_snapshot: Settings | None = None,
+        base_path: Path | None = None,
+        parser: MarkdownParser | None = None,
+        chunker: HeadingAwareChunker | None = None,
+        embedder: Embedder | None = None,
+        qdrant: QdrantClient | None = None,
+        sqlite: SQLiteClient | None = None,
+    ):
+        """Bind indexing collaborators to one optional runtime settings snapshot."""
+        self.settings_snapshot = settings_snapshot or settings
+        self.parser = parser or MarkdownParser()
+        self.chunker = chunker or HeadingAwareChunker(
+            settings_snapshot=self.settings_snapshot
+        )
+        self.embedder = embedder or Embedder(settings_snapshot=self.settings_snapshot)
+        self.qdrant = qdrant or QdrantClient(settings_snapshot=self.settings_snapshot)
+        self.sqlite = sqlite or SQLiteClient(settings_snapshot=self.settings_snapshot)
+        self.base_path = base_path or Path(self.settings_snapshot.docs_local_path)
 
     async def build(
         self,
@@ -240,8 +253,9 @@ class IndexBuilder:
     def _collect_markdown_files(self) -> List[Path]:
         """Collect all markdown files from included directories."""
         md_files = []
+        settings_snapshot = self._runtime_settings()
 
-        for dir_name in settings.include_dirs_list:
+        for dir_name in settings_snapshot.include_dirs_list:
             target_dir = self.base_path / dir_name
             if not target_dir.exists():
                 logger.warning(f"Directory does not exist: {target_dir}")
@@ -265,7 +279,7 @@ class IndexBuilder:
         """Index one document end-to-end so failures do not poison later documents."""
         pending_doc_models = {doc_model.doc_id: doc_model}
         remaining_chunks_by_doc = {doc_model.doc_id: len(chunks)}
-        batch_size = settings.embedding_batch_size
+        batch_size = self._runtime_settings().embedding_batch_size
 
         for start in range(0, len(chunks), batch_size):
             batch = chunks[start:start + batch_size]
@@ -338,14 +352,15 @@ class IndexBuilder:
 
     def _index_signature(self) -> str:
         """Hash indexing-relevant settings so model/chunker changes trigger reindex."""
+        settings_snapshot = self._runtime_settings()
         payload = {
             "version": INDEX_SIGNATURE_VERSION,
-            "embedding_base_url": settings.embedding_base_url,
-            "embedding_model": settings.embedding_model,
-            "document_input_type": settings.embedding_document_input_type,
-            "document_prefix": settings.embedding_document_prefix,
-            "chunk_target_size": settings.chunk_target_size,
-            "chunk_overlap": settings.chunk_overlap,
+            "embedding_base_url": settings_snapshot.embedding_base_url,
+            "embedding_model": settings_snapshot.embedding_model,
+            "document_input_type": settings_snapshot.embedding_document_input_type,
+            "document_prefix": settings_snapshot.embedding_document_prefix,
+            "chunk_target_size": settings_snapshot.chunk_target_size,
+            "chunk_overlap": settings_snapshot.chunk_overlap,
             "parser_version": getattr(self.parser, "version", "v1"),
             "chunker_version": getattr(self.chunker, "version", "v1"),
         }
@@ -401,12 +416,13 @@ class IndexBuilder:
 
     def _maybe_wait_between_batches(self, embedded_batches: int) -> int:
         """Sleep between embedding batches when configured."""
-        if embedded_batches and settings.embedding_inter_batch_delay_seconds > 0:
+        settings_snapshot = self._runtime_settings()
+        if embedded_batches and settings_snapshot.embedding_inter_batch_delay_seconds > 0:
             logger.info(
                 "Sleeping "
-                f"{settings.embedding_inter_batch_delay_seconds}s before next embedding batch"
+                f"{settings_snapshot.embedding_inter_batch_delay_seconds}s before next embedding batch"
             )
-            time.sleep(settings.embedding_inter_batch_delay_seconds)
+            time.sleep(settings_snapshot.embedding_inter_batch_delay_seconds)
         return embedded_batches
 
     def _safe_delete_document_vectors(self, doc_id: str):
@@ -468,6 +484,10 @@ class IndexBuilder:
         if progress_callback is None:
             return
         progress_callback(payload)
+
+    def _runtime_settings(self) -> Settings:
+        """Return the bound settings snapshot or fall back to the latest process settings."""
+        return getattr(self, "settings_snapshot", None) or settings
 
     def _build_summary(
         self,

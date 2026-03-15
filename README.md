@@ -30,7 +30,7 @@
 
 ### 2. 编辑运行时配置
 
-默认配置文件是 [deploy/app.env](/Volumes/PM9A1/code/codex/openharmony-docs-rag/deploy/app.env)。
+默认配置文件是 [deploy/app.env](deploy/app.env)。
 
 至少需要填写这些字段：
 
@@ -156,8 +156,8 @@ docker compose --env-file deploy/app.env up -d
 
 Python 封装入口：
 
-- [skill/rag_skill_wrapper.py](/Volumes/PM9A1/code/codex/openharmony-docs-rag/skill/rag_skill_wrapper.py)
-- [skill/SKILL.md](/Volumes/PM9A1/code/codex/openharmony-docs-rag/skill/SKILL.md)
+- [skill/rag_skill_wrapper.py](skill/rag_skill_wrapper.py)
+- [skill/SKILL.md](skill/SKILL.md)
 
 示例：
 
@@ -173,8 +173,8 @@ print(skill.format_answer(result))
 
 stdio server 入口：
 
-- [rag_mcp/stdio_server.py](/Volumes/PM9A1/code/codex/openharmony-docs-rag/rag_mcp/stdio_server.py)
-- [mcp/server.example.json](/Volumes/PM9A1/code/codex/openharmony-docs-rag/mcp/server.example.json)
+- [rag_mcp/stdio_server.py](rag_mcp/stdio_server.py)
+- [mcp/server.example.json](mcp/server.example.json)
 
 示例：
 
@@ -204,11 +204,11 @@ docker compose --env-file deploy/app.env down
 
 镜像和版本发布由 GitHub Actions 维护：
 
-- [release.yml](/Volumes/PM9A1/code/codex/openharmony-docs-rag/.github/workflows/release.yml)
+- [release.yml](.github/workflows/release.yml)
   - 推送 `main` 后执行 `semantic-release`
   - 自动生成版本说明
   - 自动创建 `vX.Y.Z` tag 和 GitHub Release
-- [publish-image.yml](/Volumes/PM9A1/code/codex/openharmony-docs-rag/.github/workflows/publish-image.yml)
+- [publish-image.yml](.github/workflows/publish-image.yml)
   - 推送 `main` 发布 `latest`
   - 推送 `v*` tag 发布版本镜像
   - 同时发布 `linux/amd64` 和 `linux/arm64`

@@ -14,7 +14,7 @@ from qdrant_client.models import (
 )
 
 from app.schemas import Chunk, RetrievalFilters
-from app.settings import settings
+from app.settings import Settings, settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -23,12 +23,18 @@ logger = setup_logger(__name__)
 class QdrantClient:
     """Qdrant vector store client."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        settings_snapshot: Settings | None = None,
+        collection_name: str | None = None,
+    ):
+        """Bind Qdrant access to one optional runtime settings snapshot and collection."""
+        self.settings_snapshot = settings_snapshot or settings
         self.client = QdrantClientSDK(
-            host=settings.qdrant_host,
-            port=settings.qdrant_port
+            host=self.settings_snapshot.qdrant_host,
+            port=self.settings_snapshot.qdrant_port
         )
-        self.collection_name = settings.qdrant_collection
+        self.collection_name = collection_name or self.settings_snapshot.qdrant_collection
 
     def initialize_collection(self, vector_size: int):
         """

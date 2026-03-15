@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api import query, health, management
 from app.api.web import router as web_router
-from app.settings import settings
+from app.settings import SettingsProvider, get_settings, set_settings_provider
 from app.storage.sqlite_client import SQLiteClient
 from app.utils.logger import setup_logger
 
@@ -70,8 +70,14 @@ def _register_web_routes(app: FastAPI, web_dist_dir: Path | None = None) -> None
         return Response(status_code=404)
 
 
-def create_app(web_dist_dir: Path | None = None) -> FastAPI:
+def create_app(
+    web_dist_dir: Path | None = None,
+    settings_provider: SettingsProvider | None = None,
+) -> FastAPI:
     """Create the API application and optionally attach built frontend routes."""
+    if settings_provider is not None:
+        set_settings_provider(settings_provider)
+
     app = FastAPI(
         title="OpenHarmony Docs RAG API",
         description="RAG system for OpenHarmony Chinese documentation",
@@ -119,9 +125,10 @@ app = create_app()
 if __name__ == "__main__":
     import uvicorn
 
+    runtime_settings = get_settings()
     uvicorn.run(
         "app.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
+        host=runtime_settings.api_host,
+        port=runtime_settings.api_port,
         reload=True
     )

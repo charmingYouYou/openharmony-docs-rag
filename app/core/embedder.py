@@ -6,7 +6,7 @@ from typing import List
 
 import requests
 
-from app.settings import settings
+from app.settings import Settings, settings
 from app.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -15,14 +15,16 @@ logger = setup_logger(__name__)
 class Embedder:
     """Generate embeddings through the configured embeddings endpoint."""
 
-    def __init__(self):
-        self.api_key = settings.embedding_api_key
-        self.base_url = settings.embedding_base_url
-        self.model = settings.embedding_model
-        self.document_input_type = settings.embedding_document_input_type
-        self.query_input_type = settings.embedding_query_input_type
-        self.document_prefix = settings.embedding_document_prefix
-        self.query_prefix = settings.embedding_query_prefix
+    def __init__(self, settings_snapshot: Settings | None = None):
+        """Bind embedding requests to one optional runtime settings snapshot."""
+        self.settings_snapshot = settings_snapshot or settings
+        self.api_key = self.settings_snapshot.embedding_api_key
+        self.base_url = self.settings_snapshot.embedding_base_url
+        self.model = self.settings_snapshot.embedding_model
+        self.document_input_type = self.settings_snapshot.embedding_document_input_type
+        self.query_input_type = self.settings_snapshot.embedding_query_input_type
+        self.document_prefix = self.settings_snapshot.embedding_document_prefix
+        self.query_prefix = self.settings_snapshot.embedding_query_prefix
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -50,7 +52,7 @@ class Embedder:
             return []
 
         response = None
-        for attempt in range(1, settings.embedding_max_retries + 1):
+        for attempt in range(1, self.settings_snapshot.embedding_max_retries + 1):
             response = requests.post(
                 self._embeddings_url(),
                 headers=self.headers,
@@ -66,15 +68,15 @@ class Embedder:
                 response.raise_for_status()
                 break
 
-            if attempt == settings.embedding_max_retries:
+            if attempt == self.settings_snapshot.embedding_max_retries:
                 response.raise_for_status()
 
             logger.warning(
                 "Embedding request hit rate limit on attempt "
-                f"{attempt}/{settings.embedding_max_retries}; sleeping "
-                f"{settings.embedding_retry_backoff_seconds}s before retry"
+                f"{attempt}/{self.settings_snapshot.embedding_max_retries}; sleeping "
+                f"{self.settings_snapshot.embedding_retry_backoff_seconds}s before retry"
             )
-            time.sleep(settings.embedding_retry_backoff_seconds)
+            time.sleep(self.settings_snapshot.embedding_retry_backoff_seconds)
 
         payload = response.json()
         data = payload.get("data", [])

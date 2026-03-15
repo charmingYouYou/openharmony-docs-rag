@@ -162,9 +162,12 @@ function ConsoleShell() {
                 <IndexExplorerPage
                   stats={consoleData.stats}
                   documents={consoleData.documents}
+                  documentDetail={consoleData.documentDetail}
+                  documentDetailLoading={consoleData.loading.documentDetail}
                   topDirOptions={consoleData.topDirOptions}
                   pageKindOptions={consoleData.pageKindOptions}
                   onRefreshDocuments={consoleData.refreshDocuments}
+                  onLoadDocumentDetail={consoleData.loadDocumentDetail}
                 />
               }
             />

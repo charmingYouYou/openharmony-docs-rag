@@ -12,7 +12,7 @@ from typing import Any, Dict, Iterable
 import uuid
 
 from app.schemas import BuildMode, BuildRunSummary, BuildStage, BuildStatus
-from app.settings import settings
+from app.settings import Settings, get_settings
 from scripts.build_index import IndexBuilder
 
 
@@ -36,6 +36,7 @@ class BuildRunState:
     can_pause: bool = False
     can_resume: bool = False
     pause_requested: bool = False
+    settings_snapshot: Settings | None = None
     events: list[dict[str, Any]] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
     worker: threading.Thread | None = None
@@ -87,6 +88,7 @@ class WebBuildManager:
         """Create and start a new build run."""
         with self._manager_lock:
             self._ensure_no_active_run()
+            settings_snapshot = get_settings()
             run = BuildRunState(
                 id=f"build-{uuid.uuid4().hex[:8]}",
                 mode=mode,
@@ -98,6 +100,7 @@ class WebBuildManager:
                 updated_at=datetime.now(),
                 can_pause=True,
                 can_resume=False,
+                settings_snapshot=settings_snapshot,
             )
             self._runs[run.id] = run
             self._active_run_id = run.id
@@ -198,6 +201,11 @@ class WebBuildManager:
                 self._sync_repo(run)
                 if self._pause_before_next_stage(run):
                     return
+            elif mode == BuildMode.INCREMENTAL:
+                self._append_progress_message(run, "进入增量构建，跳过仓库同步")
+            elif mode == BuildMode.FULL_REBUILD:
+                self._append_progress_message(run, "开始全量重建，准备清空 SQLite 和 Qdrant 现有索引")
+                self._append_progress_message(run, "已清空 SQLite 和 Qdrant，开始重新建库")
 
             self._run_index_build(
                 run,
@@ -223,6 +231,7 @@ class WebBuildManager:
 
     def _sync_repo(self, run: BuildRunState):
         """Run the repository sync step with Chinese status events."""
+        settings_snapshot = run.settings_snapshot or get_settings()
         with run.lock:
             run.stage = BuildStage.SYNCING_REPO
             run.updated_at = datetime.now()
@@ -235,7 +244,7 @@ class WebBuildManager:
                 },
             )
 
-        repo_path = Path(settings.docs_local_path)
+        repo_path = Path(settings_snapshot.docs_local_path)
         if not repo_path.exists():
             result = subprocess.run(
                 [
@@ -244,8 +253,8 @@ class WebBuildManager:
                     "--depth",
                     "1",
                     "--branch",
-                    settings.docs_branch,
-                    settings.docs_repo_url,
+                    settings_snapshot.docs_branch,
+                    settings_snapshot.docs_repo_url,
                     str(repo_path),
                 ],
                 capture_output=True,
@@ -254,7 +263,14 @@ class WebBuildManager:
             )
         else:
             result = subprocess.run(
-                ["git", "-C", str(repo_path), "pull", "origin", settings.docs_branch],
+                [
+                    "git",
+                    "-C",
+                    str(repo_path),
+                    "pull",
+                    "origin",
+                    settings_snapshot.docs_branch,
+                ],
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -264,7 +280,7 @@ class WebBuildManager:
             raise RuntimeError(result.stderr.strip() or "同步仓库失败")
 
         file_count = 0
-        for dir_name in settings.include_dirs_list:
+        for dir_name in settings_snapshot.include_dirs_list:
             target_dir = repo_path / dir_name
             if target_dir.exists():
                 file_count += len(list(target_dir.rglob("*.md")))
@@ -286,7 +302,7 @@ class WebBuildManager:
             run.stage = BuildStage.COLLECTING_DOCS
             run.updated_at = datetime.now()
 
-        builder = IndexBuilder()
+        builder = IndexBuilder(settings_snapshot=run.settings_snapshot)
         summary = asyncio.run(
             builder.build(
                 full_rebuild=full_rebuild,
@@ -381,6 +397,20 @@ class WebBuildManager:
                 "data": data,
             }
         )
+
+    def _append_progress_message(self, run: BuildRunState, message: str) -> None:
+        """Append one normalized progress message while keeping stage and timestamps consistent."""
+        with run.lock:
+            run.updated_at = datetime.now()
+            self._append_event(
+                run,
+                "progress",
+                {
+                    "message": message,
+                    "stage": run.stage.value,
+                    "status": run.status.value,
+                },
+            )
 
     def _pause_before_next_stage(self, run: BuildRunState) -> bool:
         """Pause between sync and build if requested."""

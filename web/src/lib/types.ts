@@ -81,6 +81,19 @@ export interface DocumentRecord {
   last_indexed_at?: string | null
 }
 
+export interface DocumentDetail extends DocumentRecord {
+  source_url?: string | null
+  sub_dir?: string | null
+  subsystem?: string | null
+  owner?: string | null
+  is_api_reference?: boolean
+  is_guide?: boolean
+  is_design_spec?: boolean
+  content_hash?: string | null
+  index_signature?: string | null
+  created_at?: string | null
+}
+
 export interface DocumentsResponse {
   documents: DocumentRecord[]
   total: number
