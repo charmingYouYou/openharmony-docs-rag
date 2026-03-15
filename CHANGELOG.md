@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/charmingYouYou/openharmony-docs-rag/compare/v1.0.0...v1.0.1) (2026-03-15)
+
+### Bug Fixes
+
+* track frontend lib modules ([b089000](https://github.com/charmingYouYou/openharmony-docs-rag/commit/b08900074e117b2bfee7592f99f0d3b1e3321f0f))
+
 ## 1.0.0 (2026-03-15)
 
 ### Features
